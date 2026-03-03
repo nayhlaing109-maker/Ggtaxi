@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Taxi User - GG Taxi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #1a73e8; --bg: #f8f9fa; }
+        body { margin: 0; font-family: sans-serif; background: var(--bg); overflow: hidden; }
+        #map { height: 100vh; width: 100%; position: absolute; top: 0; z-index: 1; }
+        #center-pin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 10; pointer-events: none; display: none; }
+        .bottom-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: white; border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 20px; z-index: 1000; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
+        .input-group { display: flex; align-items: center; background: #f8f9fa; border-radius: 12px; padding: 5px 15px; border: 1px solid #eee; margin-bottom: 10px; cursor: pointer; }
+        .input-group input { border: none; background: transparent; width: 100%; padding: 12px; font-size: 15px; outline: none; pointer-events: none; }
+        .btn-main { width: 100%; background: var(--primary); color: white; border: none; padding: 16px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .btn-pick { width: 100%; background: #e8eaed; color: #3c4043; border: none; padding: 12px; border-radius: 12px; margin-top: 5px; font-weight: bold; }
+        .driver-card { display: none; background: #e9f7ef; padding: 15px; border-radius: 12px; border: 1px solid #28a745; margin-top: 10px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #search-overlay { display: none; position: fixed; inset: 0; background: white; z-index: 2000; padding: 20px; }
+        #search-input { width: 100%; padding: 15px; border: 2px solid var(--primary); border-radius: 12px; outline: none; }
+    </style>
+</head>
+<body>
+
+    <div id="center-pin"><img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" width="45"></div>
+    <div id="map"></div>
+
+    <div class="bottom-sheet">
+        <div id="booking-ui">
+            <div class="input-group" onclick="openSearch()">
+                <div style="width:10px; height:10px; background:#ea4335; border-radius:50%; margin-right:10px;"></div>
+                <input type="text" id="dest-display" placeholder="ဘယ်ကိုသွားမလဲ?" readonly>
+            </div>
+            <button class="btn-pick" onclick="startMapPick()">📍 မြေပုံပေါ်တွင် ရွေးမည်</button>
+            <div id="fare-area" style="text-align:center; padding: 10px; font-weight:bold; display:none;">ခန့်မှန်းခြေ: <span id="fare-text">0</span> ကျပ်</div>
+            <button id="book-btn" class="btn-main" style="display:none; margin-top:10px;" onclick="sendBooking()">🚕 အခုပဲခေါ်ဆိုမည်</button>
+        </div>
+
+        <div id="confirm-ui" style="display:none; text-align:center;">
+            <p id="picked-address" style="font-weight:bold; margin-bottom:15px;">နေရာရွေးချယ်ပါ</p>
+            <button class="btn-main" onclick="confirmPick()">ဤနေရာကို အတည်ပြုသည်</button>
+            <button class="btn-pick" onclick="cancelPick()">ပယ်ဖျက်မည်</button>
+        </div>
+
+        <div id="tracking-ui" style="display:none; text-align:center;">
+            <div id="spinner" class="spinner"></div>
+            <div id="status-text" style="font-weight: bold;">ယာဉ်မောင်း ရှာဖွေနေပါသည်...</div>
+            <div id="driver-card" class="driver-card">
+                <div style="text-align:left;">ယာဉ်အမှတ်: <b id="carNo">-</b><br>ဖုန်း: <b id="phone">-</b></div>
+                <a id="callLink" href="#" style="display:block; background:#28a745; color:white; text-decoration:none; padding:12px; border-radius:10px; margin-top:10px; font-weight:bold;">📞 ဖုန်းခေါ်မည်</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-overlay">
+        <button onclick="closeSearch()" style="border:none; background:none; font-size:24px;">✕</button>
+        <input type="text" id="search-input" placeholder="နေရာရိုက်ရှာပါ..." oninput="searchLocation(this.value)">
+        <div id="search-results"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://bebmvobjkkfbyzmlnjdb.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Y1IGprOyG-OnXLSMht5OGg_6dHy58GI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        var map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        let uLat, uLng, dLat, dLng, isPicking = false, driverMarker;
+
+        // GPS Location
+        navigator.geolocation.getCurrentPosition(p => {
+            uLat = p.coords.latitude; uLng = p.coords.longitude;
+            map.setView([uLat, uLng], 15);
+            L.circleMarker([uLat, uLng], {color: '#1a73e8', radius: 8}).addTo(map);
+        }, err => {
+            alert("တည်နေရာ (GPS) မရရှိနိုင်ပါ။ ကျေးဇူးပြု၍ Location Permission ပေးပါ။");
+        });
+
+        function openSearch() { document.getElementById('search-overlay').style.display = 'block'; }
+        function closeSearch() { document.getElementById('search-overlay').style.display = 'none'; }
+
+        async function searchLocation(q) {
+            if(q.length < 3) return;
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=mm&limit=5`);
+            const data = await res.json();
+            let html = '';
+            data.forEach(item => {
+                html += `<div style="padding:15px; border-bottom:1px solid #eee;" onclick="selectLocation(${item.lat}, ${item.lon}, '${item.display_name}')">📍 ${item.display_name.split(',')[0]}</div>`;
+            });
+            document.getElementById('search-results').innerHTML = html;
+        }
+
+        function selectLocation(lat, lon, name) {
+            dLat = lat; dLng = lon;
+            document.getElementById('dest-display').value = name.split(',')[0];
+            closeSearch();
+            calculateFare();
+        }
+
+        function startMapPick() {
+            isPicking = true;
+            document.getElementById('center-pin').style.display = 'block';
+            document.getElementById('booking-ui').style.display = 'none';
+            document.getElementById('confirm-ui').style.display = 'block';
+            map.on('moveend', async () => {
+                if(isPicking) {
+                    let c = map.getCenter();
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}`);
+                    const data = await res.json();
+                    document.getElementById('picked-address').innerText = data.display_name.split(',')[0] || "နေရာရွေးပါ";
+                }
+            });
+        }
+
+        function confirmPick() {
+            let c = map.getCenter();
+            dLat = c.lat; dLng = c.lng;
+            document.getElementById('dest-display').value = document.getElementById('picked-address').innerText;
+            cancelPick();
+            calculateFare();
+        }
+
+        function cancelPick() {
+            isPicking = false;
+            document.getElementById('center-pin').style.display = 'none';
+            document.getElementById('confirm-ui').style.display = 'none';
+            document.getElementById('booking-ui').style.display = 'block';
+        }
+
+        function calculateFare() {
+            const dist = Math.sqrt(Math.pow(dLat-uLat, 2) + Math.pow(dLng-uLng, 2)) * 111;
+            const fare = Math.max(1500, Math.round(dist * 1200 / 100) * 100);
+            document.getElementById('fare-text').innerText = fare;
+            document.getElementById('fare-area').style.display = 'block';
+            document.getElementById('book-btn').style.display = 'block';
+        }
+
+        // Fix: Insert logic with Number conversion
+        async function sendBooking() {
+            if(!uLat || !uLng) return alert("တည်နေရာ (GPS) ရှာမတွေ့သေးပါ။");
+
+            const { data, error } = await _supabase.from('bookings').insert([{
+                u_lat: uLat, u_lng: uLng,
+                dest_lat: dLat, dest_lng: dLng,
+                dest_name: document.getElementById('dest-display').value,
+                fare: Number(document.getElementById('fare-text').innerText),
+                status: 'pending'
+            }]).select();
+
+            if (error) {
+                alert("Error: " + error.message);
+                return;
+            }
+
+            if (data) {
+                document.getElementById('booking-ui').style.display = 'none';
+                document.getElementById('tracking-ui').style.display = 'block';
+                listenToDriver(data[0].id);
+            }
+        }
+
+        // Fix: Realtime tracking columns
+        function listenToDriver(id) {
+            _supabase.channel('tracking').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, payload => {
+                const updated = payload.new;
+                if(updated.status === 'on_going') {
+                    document.getElementById('spinner').style.display = 'none';
+                    document.getElementById('status-text').innerText = "ယာဉ်မောင်း လက်ခံလိုက်ပါပြီ ✅";
+                    document.getElementById('driver-card').style.display = 'block';
+                    document.getElementById('carNo').innerText = updated.driver_car;
+                    document.getElementById('phone').innerText = updated.driver_phone;
+                    document.getElementById('callLink').href = "tel:" + updated.driver_phone;
+                    
+                    // Update driver location on map
+                    if(updated.driver_lat && updated.driver_lng) {
+                        if(driverMarker) map.removeLayer(driverMarker);
+                        driverMarker = L.marker([updated.driver_lat, updated.driver_lng], {
+                            icon: L.icon({
+                                iconUrl:'https://cdn-icons-png.flaticon.com/512/854/854831.png', 
+                                iconSize:[35,35]
+                            })
+                        }).addTo(map);
+                    }
+                } else if (updated.status === 'ended') {
+                    alert("ခရီးစဉ်ပြီးဆုံးပါပြီ");
+                    window.location.reload();
+                }
+            }).subscribe();
+        }
+    </script>
+</body>
+</html>
