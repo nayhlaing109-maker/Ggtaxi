@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Taxi Driver - Supabase (No VPN)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --success: #28a745; --danger: #dc3545; --dark: #333; }
+        body { margin: 0; font-family: sans-serif; background: #f8f9fa; overflow: hidden; }
+        #map { height: 100vh; width: 100%; position: absolute; z-index: 1; }
+        .top-bar { background: var(--dark); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; position: relative; z-index: 2000; }
+        #setup-screen { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; justify-content: center; align-items: center; padding: 20px; text-align: center; }
+        .setup-box input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
+        .btn-start { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 18px; }
+        .job-card { position: absolute; bottom: 30px; left: 5%; width: 90%; background: white; z-index: 4000; border-radius: 25px; padding: 25px; display: none; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .btn-row { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-btn { flex: 1; border: none; padding: 16px; border-radius: 12px; font-weight: bold; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h2>Taxi Driver Mode</h2>
+            <input type="text" id="driverCarNo" placeholder="ယာဉ်အမှတ် (YGN-1234)">
+            <input type="tel" id="driverPhone" placeholder="ဖုန်းနံပါတ်">
+            <button class="btn-start" onclick="startNow()">Online တက်မည်</button>
+        </div>
+    </div>
+
+    <div class="top-bar">
+        <span>Taxi Driver</span>
+        <span id="status-text" style="color:#ff4444;">● Offline</span>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="job-card" class="job-card">
+        <h3 style="color: #ffc107; margin: 0;">🔔 ခရီးစဉ်အသစ်</h3>
+        <h1 id="fareVal" style="margin: 10px 0;">0 ကျပ်</h1>
+        <p id="destDisplay" style="color: #666;">📍 သွားမည့်နေရာ- </p>
+        <div id="action-btns" class="btn-row">
+            <button class="btn-btn" style="background:#6c757d;" onclick="rejectJob()">ငြင်းပယ်မည်</button>
+            <button class="btn-btn" style="background:var(--success);" onclick="acceptJob()">လက်ခံမည်</button>
+        </div>
+        <button id="endBtn" class="btn-btn" style="background:var(--danger); width:100%; display:none; margin-top:15px;" onclick="finishTrip()">ခရီးစဉ် ပြီးဆုံးပါပြီ</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://bebmvobjkkfbyzmlnjdb.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Y1IGprOyG-OnXLSMht5OGg_6dHy58GI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        var map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        let driverCar, driverPhone, currentTripId = null, myMarker, userMarker, destMarker;
+
+        function startTracking() {
+            navigator.geolocation.watchPosition(async (p) => {
+                const lat = p.coords.latitude, lng = p.coords.longitude;
+                if (!myMarker) {
+                    myMarker = L.marker([lat, lng], { icon: L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/854/854831.png', iconSize:[45,45]}) }).addTo(map);
+                    map.setView([lat, lng], 15);
+                } else {
+                    myMarker.setLatLng([lat, lng]);
+                }
+                if (currentTripId) {
+                    await _supabase.from('bookings').update({ d_lat: lat, d_lng: lng }).eq('id', currentTripId);
+                }
+            }, null, { enableHighAccuracy: true });
+        }
+
+        async function startNow() {
+            driverCar = document.getElementById('driverCarNo').value;
+            driverPhone = document.getElementById('driverPhone').value;
+            if(!driverCar || !driverPhone) return alert("အချက်အလက်ဖြည့်ပါ");
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('status-text').innerText = "● Online";
+            document.getElementById('status-text').style.color = "#28a745";
+            setTimeout(() => { map.invalidateSize(); }, 500);
+            startTracking();
+            listenForJobs();
+        }
+
+        function listenForJobs() {
+            _supabase.channel('public:bookings')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, payload => {
+                const data = payload.new;
+                if (data.status === 'pending') {
+                    currentTripId = data.id;
+                    document.getElementById('fareVal').innerText = data.fare + " ကျပ်";
+                    document.getElementById('destDisplay').innerText = "📍 " + data.dest_name;
+                    document.getElementById('job-card').style.display = 'block';
+
+                    if(userMarker) map.removeLayer(userMarker);
+                    userMarker = L.marker([data.u_lat, data.u_lng]).addTo(map).bindPopup("ခရီးသည်");
+                    if(destMarker) map.removeLayer(destMarker);
+                    destMarker = L.marker([data.dest_lat, data.dest_lng]).addTo(map).bindPopup("အဆုံးသတ်");
+                }
+            }).subscribe();
+        }
+
+        async function acceptJob() {
+            await _supabase.from('bookings').update({ 
+                status: 'on_going', driver_car: driverCar, driver_phone: driverPhone 
+            }).eq('id', currentTripId);
+            document.getElementById('action-btns').style.display = 'none';
+            document.getElementById('endBtn').style.display = 'block';
+        }
+
+        async function finishTrip() {
+            if(confirm("ခရီးစဉ် ပြီးဆုံးပြီလား?")) {
+                await _supabase.from('bookings').update({ status: 'ended' }).eq('id', currentTripId);
+                window.location.reload();
+            }
+        }
+
+        function rejectJob() { document.getElementById('job-card').style.display = 'none'; currentTripId = null; }
+    </script>
+</body>
+</html>
