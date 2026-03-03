@@ -6,6 +6,10 @@
     <title>Taxi User - GG Taxi</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #1a73e8; --bg: #f8f9fa; }
@@ -23,6 +27,8 @@
         #search-overlay { display: none; position: fixed; inset: 0; background: white; z-index: 2000; padding: 20px; }
         #search-input { width: 100%; padding: 15px; border: 2px solid var(--primary); border-radius: 12px; outline: none; }
         #search-results { max-height: 80vh; overflow-y: auto; }
+        /* Routing Control အကွက်ကို ဖျောက်ထားရန် */
+        .leaflet-routing-container { display: none; }
     </style>
 </head>
 <body>
@@ -67,25 +73,21 @@
     </div>
 
     <script>
-        // Supabase Connection
         const SUPABASE_URL = 'https://qvmrqjhzgaulfvrjcay.supabase.co';
-        const SUPABASE_KEY =  'Sb_publishable_VxdahDjKH2SClNzEyBUqkw_21OUqVK-';
+        const SUPABASE_KEY =  'sb_publishable_VxdahDjKH2SClNzEyBUqkw_21OUqVK-';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Map Initialize
         var map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        let uLat, uLng, dLat, dLng, isPicking = false, driverMarker;
+        let uLat, uLng, dLat, dLng, isPicking = false, driverMarker, routingControl;
 
-        // Get User Location
         navigator.geolocation.getCurrentPosition(p => {
             uLat = p.coords.latitude; uLng = p.coords.longitude;
             map.setView([uLat, uLng], 15);
             L.circleMarker([uLat, uLng], {color: '#1a73e8', radius: 8, fillOpacity: 0.8}).addTo(map);
         }, err => {
-            console.log("GPS Error: ", err);
-            uLat = 21.9588; uLng = 96.0891; // Default Mandalay
+            uLat = 21.9588; uLng = 96.0891;
         });
 
         function openSearch() { document.getElementById('search-overlay').style.display = 'block'; }
@@ -108,7 +110,7 @@
             dLat = lat; dLng = lon;
             document.getElementById('dest-display').value = name.split(',')[0];
             closeSearch();
-            calculateFare();
+            showRoute(); // လမ်းကြောင်းပြရန် ခေါ်ခြင်း
         }
 
         function startMapPick() {
@@ -116,19 +118,6 @@
             document.getElementById('center-pin').style.display = 'block';
             document.getElementById('booking-ui').style.display = 'none';
             document.getElementById('confirm-ui').style.display = 'block';
-            map.on('move', () => {
-                if(isPicking) document.getElementById('picked-address').innerText = "တည်နေရာ ရွေးချယ်နေသည်...";
-            });
-            map.on('moveend', async () => {
-                if(isPicking) {
-                    let c = map.getCenter();
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}`);
-                        const data = await res.json();
-                        document.getElementById('picked-address').innerText = data.display_name.split(',')[0] || "နေရာမသိပါ";
-                    } catch (e) { document.getElementById('picked-address').innerText = "တည်နေရာ ရွေးပြီးပါပြီ"; }
-                }
-            });
         }
 
         function confirmPick() {
@@ -136,7 +125,7 @@
             dLat = c.lat; dLng = c.lng;
             document.getElementById('dest-display').value = document.getElementById('picked-address').innerText;
             cancelPick();
-            calculateFare();
+            showRoute(); // လမ်းကြောင်းပြရန် ခေါ်ခြင်း
         }
 
         function cancelPick() {
@@ -144,16 +133,38 @@
             document.getElementById('center-pin').style.display = 'none';
             document.getElementById('confirm-ui').style.display = 'none';
             document.getElementById('booking-ui').style.display = 'block';
-            map.off('move'); map.off('moveend');
         }
 
-        function calculateFare() {
+        // လမ်းကြောင်းဆွဲခြင်းနှင့် ဈေးနှုန်းတွက်ခြင်း
+        function showRoute() {
             if(!uLat || !dLat) return;
-            const dist = Math.sqrt(Math.pow(dLat-uLat, 2) + Math.pow(dLng-uLng, 2)) * 111;
-            const fare = Math.max(1500, Math.round(dist * 1200 / 100) * 100);
-            document.getElementById('fare-text').innerText = fare;
-            document.getElementById('fare-area').style.display = 'block';
-            document.getElementById('book-btn').style.display = 'block';
+
+            // ယခင်ဆွဲထားတဲ့ Route ရှိရင် ဖြုတ်ပစ်ပါ
+            if (routingControl) map.removeControl(routingControl);
+
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(uLat, uLng),
+                    L.latLng(dLat, dLng)
+                ],
+                routeWhileDragging: false,
+                addWaypoints: false,
+                lineOptions: {
+                    styles: [{ color: '#1a73e8', opacity: 0.8, weight: 6 }]
+                },
+                createMarker: function() { return null; } // မလိုအပ်တဲ့ Marker တွေ ဖျောက်ရန်
+            }).on('routesfound', function(e) {
+                const routes = e.routes;
+                const distance = routes[0].summary.totalDistance / 1000; // km
+                const fare = Math.max(1500, Math.round(distance * 1200 / 100) * 100);
+                
+                document.getElementById('fare-text').innerText = fare;
+                document.getElementById('fare-area').style.display = 'block';
+                document.getElementById('book-btn').style.display = 'block';
+                
+                // မြေပုံကို လမ်းကြောင်းပေါ် မူတည်ပြီး Zoom ချဲ့ပါ
+                map.fitBounds(L.latLngBounds(L.latLng(uLat, uLng), L.latLng(dLat, dLng)));
+            }).addTo(map);
         }
 
         async function sendBooking() {
