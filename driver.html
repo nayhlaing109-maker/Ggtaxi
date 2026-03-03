@@ -52,7 +52,7 @@
     </div>
 
     <script>
-        // Supabase Configuration
+        // Supabase ချိတ်ဆက်မှု (Key ကို s အသေးဖြင့် ပြင်ထားပါသည်)
         const SUPABASE_URL = 'https://qvmrqjhzgaulfvrjcay.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_VxdahDjKH2SClNzEyBUqkw_21OUqVK-'; 
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -60,12 +60,13 @@
         var map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        let driverCar, driverPhone, currentTripId = null, myMarker, userMarker, destMarker;
+        let driverCar, driverPhone, currentTripId = null, myMarker, userMarker;
 
-        // ယာဉ်မောင်းတည်နေရာကို စောင့်ကြည့်ပြီး DB သို့ ပို့ခြင်း
+        // ယာဉ်မောင်း၏ တည်နေရာကို စောင့်ကြည့်ပြီး Database သို့ Real-time ပို့ခြင်း
         function startTracking() {
             navigator.geolocation.watchPosition(async (p) => {
                 const lat = p.coords.latitude, lng = p.coords.longitude;
+                
                 if (!myMarker) {
                     myMarker = L.marker([lat, lng], { 
                         icon: L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/854/854831.png', iconSize:[45,45]}) 
@@ -75,19 +76,20 @@
                     myMarker.setLatLng([lat, lng]);
                 }
 
-                // ခရီးစဉ်စတင်ချိန်တွင် ယာဉ်မောင်းတည်နေရာကို Update လုပ်ခြင်း
+                // ခရီးစဉ်အတွင်း ရောက်ရှိနေသည့် တည်နေရာကို Update လုပ်ခြင်း
                 if (currentTripId) {
                     await _supabase.from('bookings').update({ 
                         driver_lat: lat, 
                         driver_lng: lng 
                     }).eq('id', currentTripId);
                 }
-            }, null, { enableHighAccuracy: true });
+            }, (err) => console.error(err), { enableHighAccuracy: true });
         }
 
         async function startNow() {
             driverCar = document.getElementById('driverCarNo').value;
             driverPhone = document.getElementById('driverPhone').value;
+            
             if(!driverCar || !driverPhone) return alert("အချက်အလက်ဖြည့်ပါ");
             
             document.getElementById('setup-screen').style.display = 'none';
@@ -99,7 +101,7 @@
             listenForJobs();
         }
 
-        // ခရီးသည်ခေါ်တာကို Real-time စောင့်ကြည့်ခြင်း
+        // ခရီးသည်ခေါ်ဆိုမှုများကို Real-time စောင့်ကြည့်ခြင်း
         function listenForJobs() {
             _supabase.channel('public:bookings')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, payload => {
@@ -118,7 +120,7 @@
 
         async function acceptJob() {
             if (!currentTripId) return;
-            // ယာဉ်မောင်းအချက်အလက်များကို Database တွင် Update လုပ်ခြင်း
+            // ယာဉ်မောင်းအချက်အလက်နှင့် ခရီးစဉ်အခြေအနေ Update လုပ်ခြင်း
             const { error } = await _supabase.from('bookings').update({ 
                 status: 'on_going', 
                 driver_car: driverCar, 
@@ -129,13 +131,15 @@
                 document.getElementById('action-btns').style.display = 'none';
                 document.getElementById('endBtn').style.display = 'block';
                 alert("ခရီးစဉ် လက်ခံလိုက်ပါပြီ။");
+            } else {
+                alert("အမှားအယွင်းရှိပါသည်- " + error.message);
             }
         }
 
         async function finishTrip() {
             if(confirm("ခရီးစဉ် ပြီးဆုံးပြီလား?")) {
                 await _supabase.from('bookings').update({ status: 'ended' }).eq('id', currentTripId);
-                location.reload();
+                location.reload(); // App ကို Reset ပြန်လုပ်ခြင်း
             }
         }
 
