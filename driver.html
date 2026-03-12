@@ -4,81 +4,255 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi Driver - GG Taxi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
-        .header { background: #002b5c; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
-        .booking-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #002b5c; }
-        .dest-name { font-size: 18px; font-weight: bold; color: #333; }
-        .fare { color: #28a745; font-weight: bold; font-size: 16px; margin: 5px 0; }
-        .btn-accept { width: 100%; padding: 12px; background: #002b5c; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        #no-booking { text-align: center; color: #777; margin-top: 50px; }
+        :root { --primary: #001a35; --success: #2ecc71; --red: #ff4757; --gray: #f1f2f6; --accent: #007bff; }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; position: relative; }
+        
+        /* 🗺️ မြေပုံကို နောက်ခံတွင် အပြည့်ထားရှိခြင်း */
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        /* 🔝 Status Bar - Glassmorphism style */
+        .status-bar { 
+            background: rgba(0, 26, 53, 0.85); /* မှုန်ဝါးဝါး နောက်ခံ */
+            backdrop-filter: blur(10px); /* မှုန်ဝါးစေသောအကျိုးသက်ရောက်မှု */
+            color: white; 
+            padding: 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: relative; 
+            z-index: 1001; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+        }
+        .balance-box { background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.3); transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        /* 📋 Content Area - Floating & Scrollable */
+        .content { 
+            position: relative; 
+            z-index: 1000; 
+            flex-grow: 1; 
+            padding: 15px; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-end; /* အောက်ခြေမှစတင်ရန် */
+            pointer-events: none; /* နောက်ခံမြေပုံကို ထိတွေ့နိုင်စေရန် */
+        }
+        
+        #ui-area { pointer-events: auto; /* UI element များကိုသာ ထိတွေ့နိုင်စေရန် */ }
+
+        .list-title { color: white; text-shadow: 0 2px 5px rgba(0,0,0,0.5); font-weight: bold; font-size: 20px; margin-bottom: 15px; }
+
+        /* 🃏 Booking Card - High contrast design */
+        .booking-card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 15px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25); /* ပိုမိုနက်ရှိုင်းသော အရိပ် */
+            border: 1px solid rgba(0,0,0,0.05); 
+            position: relative; 
+        }
+        .dest-name { font-size: 17px; font-weight: bold; color: #1a1a1a; margin-bottom: 8px; }
+        .fare { color: #1a1a1a; font-weight: bold; font-size: 24px; margin: 15px 0; display: flex; align-items: center; gap: 8px; }
+        .fare span.amount { color: var(--success); }
+        
+        .address-info { font-size: 14px; color: #555; margin-bottom: 5px; line-height: 1.4; display: flex; align-items: start; gap: 8px; }
+        .address-info i { margin-top: 3px; }
+
+        /* 🔘 Buttons - Clean & Clear */
+        .btn-view { width: 100%; padding: 12px; background: rgba(0, 123, 255, 0.1); color: var(--accent); border: 2px solid rgba(0, 123, 255, 0.2); border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        .btn-view:active { background: rgba(0, 123, 255, 0.2); }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-accept { flex: 2; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-accept:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        .btn-reject { flex: 1; padding: 16px; background: #f8f9fa; color: var(--red); border: 1px solid #e0e0e0; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-reject:active { background: #e9ecef; }
+        
+        .btn-action { width: 100%; padding: 18px; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        .leaflet-routing-container { display: none !important; }
+        .custom-icon { display: flex; justify-content: center; align-items: center; }
+        
+        /* မှုန်ဝါးသောအကျိုးသက်ရောက်မှုကို မြေပုံအချို့တွင်သုံးရန် */
+        .map-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 60%; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); z-index: 2; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2>ယာဉ်မောင်း လက်ခံရန်စာမျက်နှာ</h2>
-        <p>အသစ်တက်လာသော Booking များကို ဤနေရာတွင် ကြည့်ပါ</p>
+    <div id="map"></div>
+    <div class="map-overlay"></div>
+
+    <div class="status-bar">
+        <div class="balance-box">
+            <i class="fa-solid fa-coins" style="color: #f1c40f;"></i>
+            <span id="driver-balance">15,000</span> K
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="status-text" style="font-size: 14px; font-weight: bold;">ပိတ်ထားသည်</span>
+            <label class="switch">
+                <input type="checkbox" id="on-off-toggle" onchange="toggleStatus()">
+                <span class="slider"></span>
+            </label>
+        </div>
     </div>
 
-    <div id="booking-list">
-        <p id="no-booking">ရှာဖွေနေပါသည်...</p>
+    <div class="content">
+        <div id="ui-area">
+            <div style="text-align:center; padding: 40px; color:white; background: rgba(0,0,0,0.5); border-radius: 15px; backdrop-filter: blur(5px);">
+                <i class="fa-solid fa-satellite-dish fa-3x" style="margin-bottom: 15px; opacity: 0.7;"></i><br>
+                ခရီးစဉ်များလက်ခံရန် On လုပ်ပေးပါ
+            </div>
+        </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
     <script>
         const SUPABASE_URL = 'https://qvnrrqjhzgaulfvrjcay.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ၁။ Pending ဖြစ်နေသော Booking များကို ဆွဲထုတ်ခြင်း
+        let map, routeControl, isOnline = false, updateInterval;
+        let myLoc = { lat: 21.9588, lng: 96.0891 }; 
+        let activeBooking = null;
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([myLoc.lat, myLoc.lng], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            L.circleMarker([myLoc.lat, myLoc.lng], { radius: 10, fillColor: "#2ecc71", color: "#fff", weight: 4, fillOpacity: 1 }).addTo(map);
+        }
+
+        function toggleStatus() {
+            isOnline = document.getElementById('on-off-toggle').checked;
+            const statusText = document.getElementById('status-text');
+            if (isOnline) {
+                statusText.innerText = "ဖွင့်ထားသည်"; statusText.style.color = "#2ecc71";
+                fetchBookings();
+                updateInterval = setInterval(fetchBookings, 5000);
+            } else {
+                statusText.innerText = "ပိတ်ထားသည်"; statusText.style.color = "white";
+                clearInterval(updateInterval);
+                location.reload();
+            }
+        }
+
         async function fetchBookings() {
-            const { data, error } = await _supabase
-                .from('bookings')
-                .select('*')
-                .eq('status', 'pending') // Pending ဖြစ်နေတာပဲပြမယ်
-                .order('created_at', { ascending: false });
-
-            const listDiv = document.getElementById('booking-list');
-            listDiv.innerHTML = '';
-
-            if (data.length === 0) {
-                listDiv.innerHTML = '<p id="no-booking">လက်ရှိတွင် ခရီးသည် မရှိသေးပါ။</p>';
+            if (!isOnline || activeBooking) return;
+            const { data } = await _supabase.from('bookings').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+            const uiArea = document.getElementById('ui-area');
+            
+            if (!data || data.length === 0) {
+                uiArea.innerHTML = '<div style="text-align:center; color:white; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px; backdrop-filter: blur(5px);">လက်ရှိတွင် ခရီးသည် မရှိသေးပါ။</div>';
                 return;
             }
 
+            uiArea.innerHTML = '<div class="list-title">အနီးနားရှိ ခရီးစဉ်များ</div>';
             data.forEach(booking => {
                 const card = document.createElement('div');
                 card.className = 'booking-card';
                 card.innerHTML = `
-                    <div class="dest-name">📍 ${booking.dest_name || 'အမည်မသိနေရာ'}</div>
-                    <div class="fare">💰 ခရီးခ: ${booking.fare} ကျပ်</div>
-                    <div>အကွာအဝေး: ခန့်မှန်း (2.5 km)</div>
-                    <button class="btn-accept" onclick="acceptBooking(${booking.id})">လက်ခံမည်</button>
+                    <div class="dest-name">📍 ${booking.dest_addr || 'အမည်မသိနေရာ'}</div>
+                    <div class="address-info"><i class="fa-solid fa-flag text-muted"></i> <span>စမှတ်: ${booking.pickup_addr || 'လက်ရှိနေရာ'}</span></div>
+                    <div class="fare">💰 <span class="amount">${Number(booking.fare || 0).toLocaleString()} ကျပ်</span></div>
+                    <button class="btn-view" onclick="drawRoute(${booking.u_lat}, ${booking.u_lng}, ${booking.dest_lat}, ${booking.dest_lng}, '#007bff')">
+                        <i class="fa fa-map-location-dot"></i> ลမ်းကြောင်းကြည့်မည်
+                    </button>
+                    <div class="btn-group">
+                        <button class="btn-reject" onclick="rejectBooking()">ငြင်းမည်</button>
+                        <button class="btn-accept" onclick="acceptBooking(${booking.id})">လက်ခံမည်</button>
+                    </div>
                 `;
-                listDiv.appendChild(card);
+                uiArea.appendChild(card);
             });
         }
 
-        // ၂။ Booking ကို လက်ခံလိုက်ပြီး Status ပြောင်းခြင်း
-        async function acceptBooking(id) {
-            const { error } = await _supabase
-                .from('bookings')
-                .update({ status: 'accepted' }) // Status ကို update လုပ်မည်
-                .eq('id', id);
-
-            if (error) {
-                alert("Error: " + error.message);
-            } else {
-                alert("ခရီးစဉ်ကို လက်ခံလိုက်ပါပြီ။");
-                fetchBookings(); // List ကို Refresh လုပ်မယ်
+        async function acceptBooking(bookingId) {
+            const { data, error } = await _supabase.from('bookings').update({ status: 'accepted' }).eq('id', bookingId).select().single();
+            
+            if (!error && data) {
+                activeBooking = data;
+                clearInterval(updateInterval);
+                
+                const uiArea = document.getElementById('ui-area');
+                uiArea.innerHTML = `
+                    <div class="booking-card" style="text-align: center; border-left: 5px solid #007bff;">
+                        <div style="background: #e3f2fd; color: #007bff; padding: 15px; border-radius: 12px; font-weight: bold; margin-bottom: 15px;">
+                           🚕 ခရီးသည်ထံသို့ သွားနေပါသည်...
+                        </div>
+                        <p style="text-align:left; margin-bottom: 5px;">🚩 <b>ကြိုရမည့်နေရာ:</b></p>
+                        <p style="text-align:left; color: #555; margin-top: 0;">${activeBooking.pickup_addr}</p>
+                        <button class="btn-action" style="background:var(--primary);" onclick="arrivedAtUser()">ရောက်ရှိပြီ</button>
+                    </div>
+                `;
+                drawRoute(myLoc.lat, myLoc.lng, activeBooking.u_lat, activeBooking.u_lng, '#2ecc71');
             }
         }
 
-        // ၃။ ၅ စက္ကန့်တစ်ခါ အလိုအလျောက် Check လုပ်ပေးခြင်း
-        setInterval(fetchBookings, 5000);
-        fetchBookings(); // အစမှာ တစ်ခါ run မယ်
+        function drawRoute(slat, slng, elat, elng, routeColor) {
+            if (routeControl) map.removeControl(routeControl);
+            routeControl = L.Routing.control({
+                waypoints: [L.latLng(slat, slng), L.latLng(elat, elng)],
+                lineOptions: { styles: [{ color: routeColor, weight: 6, opacity: 0.9 }] },
+                createMarker: (i, wp) => {
+                    return L.marker(wp.latLng, {
+                        icon: L.divIcon({
+                            className: 'custom-icon',
+                            html: `<i class="fa-solid fa-location-dot" style="color:${i==0?'#007bff':'#ff4757'}; font-size:26px; text-shadow: 0 2px 5px rgba(0,0,0,0.5);"></i>`,
+                            iconSize: [24, 24], iconAnchor: [12, 24]
+                        })
+                    });
+                },
+                addWaypoints: false
+            }).addTo(map);
+            map.fitBounds([[slat, slng], [elat, elng]], { padding: [80, 80] });
+        }
 
+        function arrivedAtUser() {
+            const uiArea = document.getElementById('ui-area');
+            uiArea.innerHTML = `
+                <div class="booking-card" style="text-align: center; border-left: 5px solid #2ecc71;">
+                    <div style="background: #fff3e0; color: #ef6c00; padding: 15px; border-radius: 12px; font-weight: bold; margin-bottom: 15px;">
+                       🏁 ခရီးစဉ် စတင်နေပါပြီ...
+                    </div>
+                    <p style="text-align:left; margin-bottom: 5px;">🎯 <b>သွားမည့်နေရာ:</b></p>
+                    <p style="text-align:left; color: #555; margin-top: 0;">${activeBooking.dest_addr}</p>
+                    <div class="fare">💰 ရရန်ငွေ: <span class="amount">${Number(activeBooking.fare).toLocaleString()} ကျပ်</span></div>
+                    <button class="btn-action" style="background:var(--success);" onclick="finishTrip()">ခရီးစဉ် ပြီးဆုံးပြီ</button>
+                </div>
+            `;
+            drawRoute(activeBooking.u_lat, activeBooking.u_lng, activeBooking.dest_lat, activeBooking.dest_lng, '#007bff');
+        }
+
+        async function finishTrip() {
+            if(confirm("ခရီးစဉ် ပြီးဆုံးပြီလား?")) {
+                await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeBooking.id);
+                alert("ခရီးစဉ် အောင်မြင်စွာ ပြီးဆုံးပါသည်။");
+                location.reload(); 
+            }
+        }
+
+        function rejectBooking() {
+            if(confirm("ဤခရီးစဉ်ကို ငြင်းပယ်မှာ သေချာပါသလား?")) {
+                location.reload();
+            }
+        }
+
+        window.onload = initMap;
     </script>
 </body>
 </html>
