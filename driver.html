@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GG Taxi Driver - Fixed Edition</title>
+    <title>GG Taxi Driver - Realtime Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -24,7 +24,7 @@
         body { 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
             background: var(--dark-bg); color: var(--text);
-            margin: 0; overflow: hidden; height: 100vh; height: 100dvh; 
+            margin: 0; overflow: hidden; height: 100dvh; 
             display: flex; flex-direction: column;
         }
 
@@ -87,7 +87,6 @@
         .btn-primary { background: var(--accent); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-outline-map { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--accent); background: rgba(0,123,255,0.05); color: var(--accent); font-weight: bold; margin: 10px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        
         .btn-gmaps { background: #34a853; color: white; width: 100%; margin-bottom: 10px; }
 
         .leaflet-routing-container { display: none !important; }
@@ -124,14 +123,8 @@
         </div>
 
         <div id="map"></div>
-        
-        <div id="recenter-btn" onclick="recenterMap()">
-            <i class="fa-solid fa-crosshairs fa-lg"></i>
-        </div>
-
-        <div class="ui-container">
-            <div id="ui-render"></div>
-        </div>
+        <div id="recenter-btn" onclick="recenterMap()"><i class="fa-solid fa-crosshairs fa-lg"></i></div>
+        <div class="ui-container"><div id="ui-render"></div></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -153,26 +146,17 @@
             const id = document.getElementById('login-id').value;
             const pw = document.getElementById('login-pw').value;
             if(!id || !pw) return;
-            
-            const { data, error } = await _supabase.from('drivers').select('*').eq('id', id).eq('password', pw).single();
-            
+            const { data } = await _supabase.from('drivers').select('*').eq('id', id).eq('password', pw).single();
             if (data) {
-                if (data.is_banned === true) {
-                    showLoginError("သင်၏အကောင့်မှာ ပိတ်ပင် (Banned) ခံထားရပါသည်။");
-                    return;
-                }
+                if (data.is_banned) { alert("⚠️ သင်၏အကောင့်မှာ ပိတ်ပင်ခံထားရပါသည်။"); return; }
                 localStorage.setItem('driver_id', data.id);
                 driverId = data.id;
                 initApp(data.balance);
             } else {
-                showLoginError("ID နှင့် Password ကို စစ်ဆေးပါ။");
+                const err = document.getElementById('login-error');
+                err.innerText = "ID နှင့် Password မှားယွင်းနေပါသည်။";
+                err.style.display = "block";
             }
-        }
-
-        function showLoginError(msg) {
-            const err = document.getElementById('login-error');
-            err.innerText = msg;
-            err.style.display = "block";
         }
 
         function initApp(balance) {
@@ -181,30 +165,37 @@
             document.getElementById('driver-balance').innerText = Number(balance).toLocaleString();
             setupMap();
             startLocationTracking();
-            listenToBanStatus(); // Ban status ကို real-time နားထောင်မယ်
+            listenToRealtimeEvents(); // Real-time listener စတင်မည်
         }
 
-        // Real-time Ban Status Listener
-        function listenToBanStatus() {
+        // Real-time Listener (Refresh မလိုဘဲ အလုပ်လုပ်ရန်)
+        function listenToRealtimeEvents() {
             if (!driverId) return;
-            
+
             _supabase
-                .channel('driver-ban-check')
+                .channel('driver-updates')
                 .on('postgres_changes', { 
                     event: 'UPDATE', 
                     schema: 'public', 
                     table: 'drivers',
                     filter: `id=eq.${driverId}` 
                 }, (payload) => {
+                    console.log('Real-time Data Update:', payload);
+                    
+                    // Ban စစ်ဆေးခြင်း
                     if (payload.new && payload.new.is_banned === true) {
-                        alert("သင်၏အကောင့်မှာ ပိတ်ပင်ခံလိုက်ရသဖြင့် အလိုအလျောက် Logout ဖြစ်သွားပါမည်။");
+                        alert("🛑 သင်၏အကောင့်မှာ ပိတ်ပင်ခံလိုက်ရသဖြင့် Logout လုပ်ပါမည်။");
                         logout();
                     }
+                    
+                    // Balance စစ်ဆေးခြင်း
                     if (payload.new && payload.new.balance !== undefined) {
                         document.getElementById('driver-balance').innerText = Number(payload.new.balance).toLocaleString();
                     }
                 })
-                .subscribe();
+                .subscribe((status) => {
+                    console.log("Real-time Connection Status:", status);
+                });
         }
 
         function logout() {
@@ -217,17 +208,10 @@
             map = L.map('map', { zoomControl: false, attributionControl: false }).setView([myPos.lat, myPos.lng], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 }).addTo(map);
             myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 10, fillColor: "#007bff", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(map);
-            map.on('movestart', () => { 
-                isMapUserDragging = true; 
-                document.getElementById('recenter-btn').style.display = 'flex'; 
-            });
+            map.on('movestart', () => { isMapUserDragging = true; document.getElementById('recenter-btn').style.display = 'flex'; });
         }
 
-        function recenterMap() {
-            isMapUserDragging = false;
-            document.getElementById('recenter-btn').style.display = 'none';
-            map.panTo([myPos.lat, myPos.lng]);
-        }
+        function recenterMap() { isMapUserDragging = false; document.getElementById('recenter-btn').style.display = 'none'; map.panTo([myPos.lat, myPos.lng]); }
 
         function startLocationTracking() {
             if (navigator.geolocation) {
@@ -262,9 +246,7 @@
             }
             if (data.length === lastBookingCount) return;
             lastBookingCount = data.length;
-            
             document.getElementById('recenter-btn').style.bottom = "280px";
-
             let html = `<div style="color:#333; margin-bottom:12px; font-weight:bold; font-size:14px;">အနီးနားရှိ ခရီးစဉ်များ (${data.length})</div>`;
             data.forEach(job => {
                 html += `
@@ -272,9 +254,7 @@
                         <div style="font-size:12px; color:var(--accent); font-weight:bold;">📍 ဦးတည်ရာ</div>
                         <div style="font-size:15px; font-weight:600; margin: 4px 0;">${job.dest_addr}</div>
                         <div class="fare-text">${Number(job.fare).toLocaleString()} ကျပ်</div>
-                        <button class="btn-outline-map" onclick="previewRoute(${job.u_lat},${job.u_lng},${job.dest_lat},${job.dest_lng})">
-                            <i class="fa-solid fa-route"></i> လမ်းကြောင်း ကြည့်မည်
-                        </button>
+                        <button class="btn-outline-map" onclick="previewRoute(${job.u_lat},${job.u_lng},${job.dest_lat},${job.dest_lng})"><i class="fa-solid fa-route"></i> လမ်းကြောင်း ကြည့်မည်</button>
                         <div style="display:flex; gap:10px; margin-top:10px;">
                             <button class="btn btn-outline" style="background:#eee; color:#333;" onclick="location.reload()">ငြင်းပယ်</button>
                             <button class="btn btn-primary" onclick="acceptJob(${job.id})">လက်ခံမည်</button>
@@ -289,9 +269,7 @@
             if (data) {
                 activeJob = data;
                 clearInterval(pollInterval);
-                isMapUserDragging = true;
-                const gmapUrl = `http://maps.google.com/maps?saddr=${myPos.lat},${myPos.lng}&daddr=${activeJob.u_lat},${activeJob.u_lng}&directionsmode=driving`;
-                
+                const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${myPos.lat},${myPos.lng}&destination=${activeJob.u_lat},${activeJob.u_lng}&travelmode=driving`;
                 document.getElementById('ui-render').innerHTML = `
                     <div class="card">
                         <div style="text-align:center; margin-bottom:15px;"><span style="background:rgba(0,123,255,0.1); color:var(--accent); padding:6px 15px; border-radius:20px; font-size:12px; font-weight:bold;">ခရီးသည်ဆီသို့ သွားရန်</span></div>
@@ -306,8 +284,7 @@
         }
 
         function startTrip() {
-            const gmapUrl = `http://maps.google.com/maps?saddr=${myPos.lat},${myPos.lng}&daddr=${activeJob.dest_lat},${activeJob.dest_lng}&directionsmode=driving`;
-            
+            const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${myPos.lat},${myPos.lng}&destination=${activeJob.dest_lat},${activeJob.dest_lng}&travelmode=driving`;
             drawRoute(activeJob.u_lat, activeJob.u_lng, activeJob.dest_lat, activeJob.dest_lng, '#007bff');
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
@@ -319,49 +296,15 @@
                 </div>`;
         }
 
-        async function completeJob() {
-            if (!confirm("ခရီးစဉ် ပြီးဆုံးကြောင်း အတည်ပြုပါသလား?")) return;
-            await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
-            location.reload();
-        }
-
-        function drawRoute(slat, slng, elat, elng, color) {
-            if (routeControl) map.removeControl(routeControl);
-            routeControl = L.Routing.control({
-                waypoints: [L.latLng(slat, slng), L.latLng(elat, elng)],
-                lineOptions: { styles: [{ color: color, weight: 6, opacity: 0.8 }] },
-                createMarker: () => null,
-                addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true, show: false
-            }).addTo(map);
-        }
-
-        function previewRoute(ulat, ulng, dlat, dlng) {
-            if (routeControl) map.removeControl(routeControl);
-            routeControl = L.Routing.control({
-                waypoints: [L.latLng(ulat, ulng), L.latLng(dlat, dlng)],
-                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.9 }] },
-                createMarker: () => null,
-                addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true, show: false
-            }).addTo(map);
-        }
-
-        function renderIdleUI() { 
-            document.getElementById('ui-render').innerHTML = ""; 
-            lastBookingCount = -1; 
-            if (routeControl) map.removeControl(routeControl); 
-            document.getElementById('recenter-btn').style.bottom = "40px";
-        }
+        async function completeJob() { if (confirm("ခရီးစဉ် ပြီးဆုံးကြောင်း အတည်ပြုပါသလား?")) { await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id); location.reload(); } }
+        function drawRoute(slat, slng, elat, elng, color) { if (routeControl) map.removeControl(routeControl); routeControl = L.Routing.control({ waypoints: [L.latLng(slat, slng), L.latLng(elat, elng)], lineOptions: { styles: [{ color: color, weight: 6, opacity: 0.8 }] }, createMarker: () => null, addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true, show: false }).addTo(map); }
+        function previewRoute(ulat, ulng, dlat, dlng) { if (routeControl) map.removeControl(routeControl); routeControl = L.Routing.control({ waypoints: [L.latLng(ulat, ulng), L.latLng(dlat, dlng)], lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.9 }] }, createMarker: () => null, addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true, show: false }).addTo(map); }
+        function renderIdleUI() { document.getElementById('ui-render').innerHTML = ""; lastBookingCount = -1; if (routeControl) map.removeControl(routeControl); document.getElementById('recenter-btn').style.bottom = "40px"; }
 
         window.onload = async () => {
             if (driverId) {
                 const { data } = await _supabase.from('drivers').select('*').eq('id', driverId).single();
-                if (data) {
-                    if (data.is_banned === true) {
-                        logout();
-                        return;
-                    }
-                    initApp(data.balance);
-                }
+                if (data) { if (data.is_banned) { logout(); } else { initApp(data.balance); } }
             }
         };
     </script>
