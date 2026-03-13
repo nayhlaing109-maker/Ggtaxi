@@ -155,15 +155,24 @@
             if(!id || !pw) return;
             
             const { data, error } = await _supabase.from('drivers').select('*').eq('id', id).eq('password', pw).single();
+            
             if (data) {
+                if (data.is_banned === true) {
+                    showLoginError("သင်၏အကောင့်မှာ ပိတ်ပင် (Banned) ခံထားရပါသည်။");
+                    return;
+                }
                 localStorage.setItem('driver_id', data.id);
                 driverId = data.id;
                 initApp(data.balance);
             } else {
-                const err = document.getElementById('login-error');
-                err.innerText = "ဝင်ရောက်၍မရပါ။ ID နှင့် Password ကို စစ်ဆေးပါ။";
-                err.style.display = "block";
+                showLoginError("ID နှင့် Password ကို စစ်ဆေးပါ။");
             }
+        }
+
+        function showLoginError(msg) {
+            const err = document.getElementById('login-error');
+            err.innerText = msg;
+            err.style.display = "block";
         }
 
         function initApp(balance) {
@@ -172,6 +181,35 @@
             document.getElementById('driver-balance').innerText = Number(balance).toLocaleString();
             setupMap();
             startLocationTracking();
+            listenToBanStatus(); // Ban status ကို real-time နားထောင်မယ်
+        }
+
+        // Real-time Ban Status Listener
+        function listenToBanStatus() {
+            if (!driverId) return;
+            
+            _supabase
+                .channel('driver-ban-check')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'drivers',
+                    filter: `id=eq.${driverId}` 
+                }, (payload) => {
+                    if (payload.new && payload.new.is_banned === true) {
+                        alert("သင်၏အကောင့်မှာ ပိတ်ပင်ခံလိုက်ရသဖြင့် အလိုအလျောက် Logout ဖြစ်သွားပါမည်။");
+                        logout();
+                    }
+                    if (payload.new && payload.new.balance !== undefined) {
+                        document.getElementById('driver-balance').innerText = Number(payload.new.balance).toLocaleString();
+                    }
+                })
+                .subscribe();
+        }
+
+        function logout() {
+            localStorage.removeItem('driver_id');
+            location.reload();
         }
 
         function setupMap() {
@@ -225,10 +263,9 @@
             if (data.length === lastBookingCount) return;
             lastBookingCount = data.length;
             
-            // Recenter btn ကို booking UI နဲ့ မလွတ်အောင် အပေါ်နည်းနည်းပို့ပေးခြင်း
             document.getElementById('recenter-btn').style.bottom = "280px";
 
-            let html = `<div style="color:#333; margin-bottom:12px; font-weight:bold; font-size:14px; text-shadow: 0 1px 2px rgba(255,255,255,0.8);">အနီးနားရှိ ခရီးစဉ်များ (${data.length})</div>`;
+            let html = `<div style="color:#333; margin-bottom:12px; font-weight:bold; font-size:14px;">အနီးနားရှိ ခရီးစဉ်များ (${data.length})</div>`;
             data.forEach(job => {
                 html += `
                     <div class="card booking-item">
@@ -318,7 +355,13 @@
         window.onload = async () => {
             if (driverId) {
                 const { data } = await _supabase.from('drivers').select('*').eq('id', driverId).single();
-                if (data) initApp(data.balance);
+                if (data) {
+                    if (data.is_banned === true) {
+                        logout();
+                        return;
+                    }
+                    initApp(data.balance);
+                }
             }
         };
     </script>
