@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GG Taxi Driver - Fixed Edition</title>
+    <title>GG Taxi Driver - Final Finance</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -18,29 +18,50 @@
             --text: #333333;
             --warning: #ffca28;
         }
+        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--dark-bg); color: var(--text); margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-        /* Login */
-        #login-section { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #001a35 0%, #000000 100%); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .login-card { background: rgba(22, 27, 34, 0.9); padding: 40px 30px; border-radius: 30px; width: 85%; max-width: 360px; text-align: center; color: white; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
-        .login-card input { width: 100%; padding: 15px; margin-bottom: 15px; border: 1px solid #30363d; background: #0d1117; border-radius: 12px; color: white; outline: none; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--dark-bg); color: var(--text);
+            margin: 0; overflow: hidden; height: 100vh; height: 100dvh; 
+            display: flex; flex-direction: column;
+        }
+
+        #login-section {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #001a35 0%, #000000 100%);
+            z-index: 2000; display: flex; justify-content: center; align-items: center;
+        }
+        .login-card { 
+            background: rgba(22, 27, 34, 0.9); padding: 40px 30px; border-radius: 30px; 
+            width: 85%; max-width: 360px; text-align: center; color: white;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+        }
+        .login-card input { 
+            width: 100%; padding: 15px; margin-bottom: 15px; border: 1px solid #30363d; 
+            background: #0d1117; border-radius: 12px; color: white; outline: none; font-size: 16px;
+        }
 
         #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        .top-nav { position: relative; z-index: 1001; background: rgba(255, 255, 255, 0.9); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .balance-pill { background: #f1f3f4; padding: 8px 12px; border-radius: 50px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-
-        .ui-container { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 1006; padding: 20px; pointer-events: none; }
-        #ui-render { pointer-events: auto; max-width: 500px; margin: 0 auto; }
-        .card { background: white; border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); animation: slideUp 0.3s; }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .btn { width: 100%; padding: 14px; border-radius: 14px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; font-size: 15px; }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-success { background: var(--success); color: white; }
-        .btn-gmaps { background: #34a853; color: white; }
         
-        .receipt-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #eee; }
+        .top-nav { 
+            position: relative; z-index: 1001;
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+            padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .nav-left { display: flex; align-items: center; gap: 12px; }
+        .balance-pill { 
+            background: #f1f3f4; padding: 8px 12px; border-radius: 50px;
+            font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; color: #333;
+        }
+        .history-btn {
+            width: 38px; height: 38px; background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; color: var(--text);
+        }
+
         .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
@@ -48,26 +69,79 @@
         input:checked + .slider { background-color: var(--success); }
         input:checked + .slider:before { transform: translateX(18px); }
 
-        #history-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2100; display: none; flex-direction: column; }
+        #recenter-btn {
+            position: absolute; right: 20px; bottom: 40px; z-index: 1006;
+            background: white; width: 50px; height: 50px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--accent); cursor: pointer;
+        }
+
+        .ui-container { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 1006; padding: 20px; pointer-events: none; }
+        #ui-render { pointer-events: auto; max-width: 500px; margin: 0 auto; }
+
+        .card { 
+            background: white; border-radius: 24px; padding: 20px; color: #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .booking-item { background: #f8f9fa; border-radius: 18px; padding: 15px; margin-bottom: 12px; border: 1px solid #eee; }
+        .fare-text { font-size: 22px; font-weight: 800; color: var(--success); margin: 8px 0; }
+        
+        .btn { flex: 1; padding: 14px; border-radius: 14px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 15px; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline-map { width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid var(--accent); background: white; color: var(--accent); font-weight: bold; margin: 10px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-gmaps { background: #34a853; color: white; width: 100%; margin-bottom: 10px; }
+
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .receipt-total { border-top: 2px solid #f1f1f1; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: var(--success); }
+
+        #history-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 2100; display: none; flex-direction: column;
+        }
+        .history-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; }
+        #history-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .history-card { padding: 15px; border-bottom: 1px solid #f1f1f1; margin-bottom: 10px; }
+
+        .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="login-section">
         <div class="login-card">
-            <div style="background: var(--accent); width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;"><i class="fa-solid fa-taxi fa-2x" style="color: white;"></i></div>
+            <div style="background: var(--accent); width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fa-solid fa-taxi fa-2x" style="color: white;"></i>
+            </div>
             <h2>GG TAXI DRIVER</h2>
-            <input type="number" id="login-id" placeholder="ယာဉ်မောင်း ID">
+            <input type="number" id="login-id" placeholder="ဖုန်းနံပါတ် (Login ID)">
             <input type="password" id="login-pw" placeholder="Password">
-            <button class="btn btn-primary" onclick="handleLogin()">Login ဝင်မည်</button>
+            <button class="btn-login" style="width:100%; padding:15px; background:var(--accent); color:white; border:none; border-radius:12px; font-weight:bold;" onclick="handleLogin()">Login ဝင်မည်</button>
+            <p id="login-error" style="color: #ff3d00; font-size: 13px; margin-top: 15px; display: none;"></p>
         </div>
+    </div>
+
+    <div id="history-overlay">
+        <div class="history-header">
+            <i class="fa-solid fa-arrow-left fa-lg" onclick="toggleHistory(false)"></i>
+            <h3 style="margin:0;">ခရီးစဉ်မှတ်တမ်း</h3>
+        </div>
+        <div id="history-list"></div>
     </div>
 
     <div id="main-app" style="display: none;">
         <div class="top-nav">
-            <div class="balance-pill">
-                <i class="fa-solid fa-wallet" style="color: var(--warning);"></i>
-                <span id="driver-balance">0</span> <small>K</small>
+            <div class="nav-left">
+                <div class="history-btn" onclick="toggleHistory(true)">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="balance-pill">
+                    <i class="fa-solid fa-wallet" style="color: var(--warning);"></i>
+                    <span id="driver-balance">0</span> <small>K</small>
+                </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span id="status-text" style="font-size: 12px; font-weight: bold; color: #777;">OFFLINE</span>
@@ -77,8 +151,16 @@
                 </label>
             </div>
         </div>
+
         <div id="map"></div>
-        <div class="ui-container"><div id="ui-render"></div></div>
+        
+        <div id="recenter-btn" onclick="recenterMap()">
+            <i class="fa-solid fa-crosshairs fa-lg"></i>
+        </div>
+
+        <div class="ui-container">
+            <div id="ui-render"></div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -88,17 +170,35 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let map, myMarker, routeControl, activeJob = null, isOnline = false, pollInterval, myPos = { lat: 21.9588, lng: 96.0891 }, driverId = localStorage.getItem('driver_id');
+        let map, myMarker, routeControl;
+        let isOnline = false, pollInterval;
+        let myPos = { lat: 21.9588, lng: 96.0891 }; 
+        let activeJob = null;
+        let driverId = localStorage.getItem('driver_id');
+        let lastBookingCount = -1;
+        let isMapUserDragging = false;
 
         async function handleLogin() {
             const id = document.getElementById('login-id').value;
             const pw = document.getElementById('login-pw').value;
-            const { data } = await _supabase.from('drivers').select('*').eq('id', id).eq('password', pw).single();
+            if(!id || !pw) return;
+            
+            const { data } = await _supabase.from('drivers').select('*').eq('phone', id).eq('password', pw).single();
             if (data) {
-                localStorage.setItem('driver_id', data.id);
-                driverId = data.id;
+                if (data.is_banned === true) {
+                    const err = document.getElementById('login-error');
+                    err.innerText = "သင်၏အကောင့်မှာ ပိတ်ပင်ခံထားရပါသည်။";
+                    err.style.display = "block";
+                    return;
+                }
+                localStorage.setItem('driver_id', data.phone);
+                driverId = data.phone;
                 initApp(data.balance);
-            } else { alert("အချက်အလက်မှားယွင်းနေပါသည်။"); }
+            } else {
+                const err = document.getElementById('login-error');
+                err.innerText = "ဝင်ရောက်၍မရပါ။ ID နှင့် Password ကို စစ်ဆေးပါ။";
+                err.style.display = "block";
+            }
         }
 
         function initApp(balance) {
@@ -110,9 +210,17 @@
         }
 
         function setupMap() {
+            if(map) return;
             map = L.map('map', { zoomControl: false, attributionControl: false }).setView([myPos.lat, myPos.lng], 15);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 8, fillColor: "#007bff", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+            myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 10, fillColor: "#007bff", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(map);
+            map.on('movestart', () => { isMapUserDragging = true; document.getElementById('recenter-btn').style.display = 'flex'; });
+        }
+
+        function recenterMap() {
+            isMapUserDragging = false;
+            document.getElementById('recenter-btn').style.display = 'none';
+            map.panTo([myPos.lat, myPos.lng]);
         }
 
         function startLocationTracking() {
@@ -120,102 +228,186 @@
                 navigator.geolocation.watchPosition(pos => {
                     myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     if(myMarker) myMarker.setLatLng([myPos.lat, myPos.lng]);
+                    if (!activeJob && !isMapUserDragging && map) map.panTo([myPos.lat, myPos.lng]);
                 }, null, { enableHighAccuracy: true });
             }
         }
 
         function handleStatusChange() {
             isOnline = document.getElementById('status-toggle').checked;
-            document.getElementById('status-text').innerText = isOnline ? "ONLINE" : "OFFLINE";
-            if (isOnline) { pollBookings(); pollInterval = setInterval(pollBookings, 5000); }
-            else { clearInterval(pollInterval); document.getElementById('ui-render').innerHTML = ""; }
+            const statusTxt = document.getElementById('status-text');
+            if (isOnline) {
+                statusTxt.innerText = "ONLINE"; statusTxt.style.color = "var(--success)";
+                lastBookingCount = -1; pollBookings();
+                pollInterval = setInterval(pollBookings, 5000);
+            } else {
+                statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#777";
+                clearInterval(pollInterval); renderIdleUI();
+            }
         }
 
         async function pollBookings() {
             if (!isOnline || activeJob) return;
-            const { data } = await _supabase.from('bookings').select('*').eq('status', 'pending');
-            if (data && data.length > 0) {
-                const job = data[0];
-                document.getElementById('ui-render').innerHTML = `
-                    <div class="card">
-                        <div style="font-weight:bold; margin-bottom:10px;">📍 ${job.dest_addr}</div>
-                        <div style="font-size:20px; color:var(--success); font-weight:bold; margin-bottom:15px;">${Number(job.fare).toLocaleString()} K</div>
-                        <button class="btn btn-primary" onclick="acceptJob(${job.id})">လက်ခံမည်</button>
-                    </div>`;
+            const { data } = await _supabase.from('bookings').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+            const renderArea = document.getElementById('ui-render');
+            if (!data || data.length === 0) {
+                if (lastBookingCount !== 0) { renderArea.innerHTML = ""; lastBookingCount = 0; if (routeControl) map.removeControl(routeControl); }
+                return;
             }
+            if (data.length === lastBookingCount) return;
+            lastBookingCount = data.length;
+            
+            document.getElementById('recenter-btn').style.bottom = "280px";
+            let html = `<div style="color:#333; margin-bottom:12px; font-weight:bold; font-size:14px;">အနီးနားရှိ ခရီးစဉ်များ (${data.length})</div>`;
+            data.forEach(job => {
+                const previewUrl = `https://www.google.com/maps/dir/?api=1&origin=${myPos.lat},${myPos.lng}&destination=${job.u_lat},${job.u_lng}&travelmode=driving`;
+                html += `
+                    <div class="card booking-item">
+                        <div style="font-size:12px; color:var(--accent); font-weight:bold;">📍 ဦးတည်ရာ</div>
+                        <div style="font-size:15px; font-weight:600; margin: 4px 0;">${job.dest_addr}</div>
+                        <div class="fare-text">${Number(job.fare).toLocaleString()} ကျပ်</div>
+                        <a href="${previewUrl}" target="_blank" class="btn-outline-map"><i class="fa-brands fa-google"></i> Google Maps ဖြင့် လမ်းကြောင်းကြည့်ရန်</a>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn btn-outline" style="background:#eee; color:#333;" onclick="location.reload()">ငြင်းပယ်</button>
+                            <button class="btn btn-primary" onclick="acceptJob(${job.id})">လက်ခံမည်</button>
+                        </div>
+                    </div>`;
+            });
+            renderArea.innerHTML = html;
         }
 
         async function acceptJob(id) {
             const { data } = await _supabase.from('bookings').update({ status: 'accepted', driver_id: driverId }).eq('id', id).select().single();
             if (data) {
                 activeJob = data;
-                const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${myPos.lat},${myPos.lng}&destination=${data.u_lat},${data.u_lng}&travelmode=driving`;
+                clearInterval(pollInterval);
+                const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${myPos.lat},${myPos.lng}&destination=${activeJob.u_lat},${activeJob.u_lng}&travelmode=driving`;
                 document.getElementById('ui-render').innerHTML = `
                     <div class="card">
-                        <div style="text-align:center; margin-bottom:10px; font-weight:bold; color:var(--accent);">ခရီးသည်ဆီသို့ သွားရန်</div>
+                        <div style="text-align:center; margin-bottom:15px;"><span style="background:rgba(0,123,255,0.1); color:var(--accent); padding:6px 15px; border-radius:20px; font-size:12px; font-weight:bold;">ခရီးသည်ဆီသို့ သွားရန်</span></div>
                         <a href="${gmapUrl}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-map-location-dot"></i> Google Maps ဖြင့်သွားမည်</a>
-                        <div style="display:flex; gap:8px;">
-                            <a href="tel:${activeJob.u_phone}" class="btn btn-primary">ဖုန်းဆက်မည်</a>
+                        <div style="display:flex; gap:10px;">
+                            <a href="tel:${activeJob.u_phone}" class="btn btn-primary"><i class="fa-solid fa-phone"></i> ဖုန်းဆက်မည်</a>
                             <button class="btn btn-success" onclick="startTrip()">ရောက်ရှိပြီ</button>
                         </div>
                     </div>`;
+                drawRoute(myPos.lat, myPos.lng, data.u_lat, data.u_lng, '#ffca28');
             }
         }
 
         function startTrip() {
             const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${activeJob.u_lat},${activeJob.u_lng}&destination=${activeJob.dest_lat},${activeJob.dest_lng}&travelmode=driving`;
+            drawRoute(activeJob.u_lat, activeJob.u_lng, activeJob.dest_lat, activeJob.dest_lng, '#007bff');
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
-                    <div style="text-align:center; margin-bottom:10px; font-weight:bold; color:var(--success);">ခရီးစဉ် စတင်နေပြီ</div>
-                    <a href="${gmapUrl}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-location-arrow"></i> Google Maps လမ်းညွှန်</a>
-                    <button class="btn btn-primary" onclick="showReceipt()">ခရီးစဉ် ပြီးဆုံးပြီ</button>
+                    <div style="text-align:center; margin-bottom:15px;"><span style="background:rgba(0,200,83,0.1); color:var(--success); padding:6px 15px; border-radius:20px; font-size:12px; font-weight:bold;">ခရီးစဉ် စတင်နေပြီ</span></div>
+                    <div style="font-weight:600; margin-bottom:10px; font-size:15px;">${activeJob.dest_addr}</div>
+                    <a href="${gmapUrl}" target="_blank" class="btn btn-gmaps" style="background: var(--success);"><i class="fa-solid fa-location-arrow"></i> Google Map လမ်းညွှန်</a>
+                    <div style="text-align:center; font-size:20px; font-weight:bold; color:var(--success); margin-bottom:15px;">ရရန် - ${Number(activeJob.fare).toLocaleString()} K</div>
+                    <button class="btn btn-primary" style="width:100%;" onclick="showReceipt()">ခရီးစဉ် ပြီးဆုံးပြီ</button>
                 </div>`;
         }
 
         function showReceipt() {
-            const totalFare = Number(activeJob.fare);
+            const fare = Number(activeJob.fare);
             const platformFee = 100;
-            const commission = Math.round((totalFare - platformFee) * 0.14);
-            const driverEarnings = totalFare - platformFee - commission;
+            const commission = Math.round((fare - platformFee) * 0.14);
             const totalDeduction = platformFee + commission;
+            const netEarnings = fare - totalDeduction;
 
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
-                    <h3 style="text-align:center; margin-top:0;">ဘေရှင်းတမ်း</h3>
-                    <div class="receipt-row"><span>စုစုပေါင်း ရငွေ</span> <span>${totalFare.toLocaleString()} K</span></div>
-                    <div class="receipt-row"><span>Platform Fee</span> <span style="color:var(--danger);">- ${platformFee} K</span></div>
-                    <div class="receipt-row"><span>ကော်မရှင် (14%)</span> <span style="color:var(--danger);">- ${commission.toLocaleString()} K</span></div>
-                    <div style="display:flex; justify-content:space-between; padding:15px 0; font-weight:bold; font-size:18px; color:var(--success);"><span>အသားတင် ရငွေ</span> <span>${driverEarnings.toLocaleString()} K</span></div>
-                    <button class="btn btn-success" onclick="completeJob(${totalDeduction})">အတည်ပြုသည်</button>
+                    <h3 style="text-align:center; margin:0 0 20px 0; color:var(--accent);">ခရီးစဉ် ငွေရှင်းတမ်း</h3>
+                    <div class="receipt-row"><span>စုစုပေါင်း ရငွေ</span> <span>${fare.toLocaleString()} K</span></div>
+                    <div class="receipt-row" style="color:var(--danger);"><span>Platform Fee</span> <span>- ${platformFee} K</span></div>
+                    <div class="receipt-row" style="color:var(--danger);"><span>ကော်မရှင် (14%)</span> <span>- ${commission.toLocaleString()} K</span></div>
+                    <div class="receipt-total">
+                        <div style="display:flex; justify-content:space-between;"><span>အသားတင် ရငွေ</span> <span>${netEarnings.toLocaleString()} K</span></div>
+                    </div>
+                    <p style="font-size:11px; color:#777; text-align:center; margin:15px 0;">ဝန်ဆောင်ခ ${totalDeduction.toLocaleString()} K ကို သင့် Wallet ထဲမှ နှုတ်ယူပါမည်။</p>
+                    <button class="btn btn-success" style="width:100%;" onclick="confirmAndDeduct(${totalDeduction})">အတည်ပြုသည်</button>
                 </div>`;
         }
 
-        async function completeJob(deductionAmount) {
-            // 1. နောက်ဆုံးလက်ကျန်ငွေကို Database မှ အရင်စစ်မည် (တိကျစေရန်)
-            const { data: driverData } = await _supabase.from('drivers').select('balance').eq('id', driverId).single();
-            
-            if (driverData) {
-                const updatedBalance = driverData.balance - deductionAmount;
+        async function confirmAndDeduct(deductionAmount) {
+            try {
+                // လက်ရှိ Driver Balance ကို phone (String) ဖြစ်ကြောင်း သေချာအောင် စစ်ဆေးခြင်း
+                const { data: driverData, error: fetchErr } = await _supabase
+                    .from('drivers')
+                    .select('balance')
+                    .eq('phone', String(driverId))
+                    .single();
                 
-                // 2. လက်ကျန်ငွေ နှုတ်မည်
-                const { error: balError } = await _supabase.from('drivers').update({ balance: updatedBalance }).eq('id', driverId);
-                
-                // 3. Booking ကို status ပြောင်းမည်
-                const { error: bookError } = await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
+                if (fetchErr || !driverData) {
+                    alert("ယာဉ်မောင်းအချက်အလက် ရှာမတွေ့ပါ။");
+                    return;
+                }
 
-                if (!balError && !bookError) {
-                    alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။ ဝန်ဆောင်ခ နှုတ်ယူပြီးပါပြီ။");
+                const currentBalance = parseInt(driverData.balance);
+                if (currentBalance < deductionAmount) {
+                    alert("သင်၏ Wallet ထဲတွင် လက်ကျန်ငွေ မလုံလောက်ပါ။");
+                    return;
+                }
+
+                const newBalance = currentBalance - deductionAmount;
+                const { error: updateErr } = await _supabase
+                    .from('drivers')
+                    .update({ balance: newBalance })
+                    .eq('phone', String(driverId));
+
+                if (!updateErr) {
+                    await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
+                    alert("ခရီးစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။");
                     location.reload();
                 } else {
-                    alert("အမှားအယွင်းတစ်ခု ဖြစ်ပွားခဲ့သည်။");
+                    alert("Error updating wallet: " + updateErr.message);
                 }
+            } catch (err) {
+                alert("လုပ်ဆောင်ချက် မှားယွင်းနေပါသည်။");
             }
         }
 
+        async function toggleHistory(show) {
+            const overlay = document.getElementById('history-overlay');
+            if(show) {
+                overlay.style.display = 'flex';
+                const { data } = await _supabase.from('bookings').select('*').eq('driver_id', driverId).eq('status', 'completed').order('created_at', { ascending: false });
+                const list = document.getElementById('history-list');
+                if(!data || data.length === 0) {
+                    list.innerHTML = `<div style="text-align:center; margin-top:50px; color:#999;">မှတ်တမ်းမရှိသေးပါ။</div>`;
+                } else {
+                    list.innerHTML = data.map(item => `
+                        <div class="history-card">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <small style="color:#999;">${new Date(item.created_at).toLocaleString('my-MM')}</small>
+                                <b style="color:var(--success);">+ ${Number(item.fare).toLocaleString()} K</b>
+                            </div>
+                            <div style="font-size:14px; font-weight:500;">📍 ${item.dest_addr}</div>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+
+        function drawRoute(slat, slng, elat, elng, color) {
+            if (routeControl) map.removeControl(routeControl);
+            routeControl = L.Routing.control({
+                waypoints: [L.latLng(slat, slng), L.latLng(elat, elng)],
+                lineOptions: { styles: [{ color: color, weight: 6, opacity: 0.8 }] },
+                createMarker: () => null,
+                addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true, show: false
+            }).addTo(map);
+        }
+
+        function renderIdleUI() { document.getElementById('ui-render').innerHTML = ""; lastBookingCount = -1; if (routeControl) map.removeControl(routeControl); }
+
         window.onload = async () => {
             if (driverId) {
-                const { data } = await _supabase.from('drivers').select('*').eq('id', driverId).single();
-                if (data) initApp(data.balance);
+                const { data } = await _supabase.from('drivers').select('*').eq('phone', String(driverId)).single();
+                if (data && !data.is_banned) initApp(data.balance);
+                else { localStorage.removeItem('driver_id'); location.reload(); }
             }
         };
     </script>
