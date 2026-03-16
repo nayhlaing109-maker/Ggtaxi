@@ -2,219 +2,269 @@
 <html lang="my">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Taxi User - Full Tracking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pya Pay - Passenger App</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #1a73e8; --bg: #f8f9fa; }
-        body { margin: 0; font-family: sans-serif; background: var(--bg); overflow: hidden; }
-        #map { height: 100vh; width: 100%; position: absolute; top: 0; z-index: 1; }
-        #center-pin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 10; pointer-events: none; display: none; }
-        .bottom-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: white; border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 20px; z-index: 1000; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
-        .input-group { display: flex; align-items: center; background: #f8f9fa; border-radius: 12px; padding: 5px 15px; border: 1px solid #eee; margin-bottom: 10px; }
-        .input-group input { border: none; background: transparent; width: 100%; padding: 12px; font-size: 15px; outline: none; }
-        .btn-main { width: 100%; background: var(--primary); color: white; border: none; padding: 16px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        .btn-pick { width: 100%; background: #e8eaed; color: #3c4043; border: none; padding: 12px; border-radius: 12px; margin-top: 5px; font-weight: bold; cursor: pointer; }
-        .driver-card { display: none; background: #e9f7ef; padding: 15px; border-radius: 12px; border: 1px solid #28a745; text-align: left; margin-top: 10px; }
-        .btn-call { display: block; background: #28a745; color: white; text-decoration: none; padding: 12px; border-radius: 10px; text-align: center; font-weight: bold; margin-top: 10px; }
-        .loader-area { display: none; text-align: center; padding: 10px; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        :root { --primary: #002b5c; --accent: #007bff; --red: #ff4757; --success: #2ecc71; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f4f7f6; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+
+        /* Floating Controls */
+        .loc-btn { position: absolute; right: 20px; bottom: 380px; z-index: 1005; background: white; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--accent); cursor: pointer; }
+
+        .center-pin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 100; pointer-events: none; }
+        .pin-icon { font-size: 40px; text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+        /* UI Box */
+        .ui-box { position: fixed; bottom: 0; width: 100%; background: white; border-top-left-radius: 25px; border-top-right-radius: 25px; z-index: 1000; padding: 20px; box-sizing: border-box; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
+        .input-row { display: flex; align-items: center; background: #f8f9fa; border: 2px solid transparent; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+        .input-row.active.pickup { border-color: var(--accent); background: white; }
+        .input-row.active.dest { border-color: var(--red); background: white; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 15px; flex-shrink: 0; }
+        .input-box { flex: 1; border: none; background: transparent; font-size: 14px; outline: none; padding: 5px 0; color: #333; }
+        
+        /* Waiting & Live UI */
+        #waiting-ui { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px 10px; }
+        .loader { width: 45px; height: 45px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #search-overlay { display: none; position: fixed; inset: 0; background: white; z-index: 2000; padding: 20px; overflow-y: auto; }
-        #search-input { width: 100%; padding: 15px; border: 2px solid var(--primary); border-radius: 12px; font-size: 16px; outline: none; box-sizing: border-box; }
-        .result-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+
+        #live-ui { display: none; animation: slideUp 0.3s ease-out; }
+        .driver-card { display: flex; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 18px; margin: 15px 0; border: 1px solid #eee; }
+        .call-btn { margin-left: auto; width: 50px; height: 50px; background: var(--success); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 20px; box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); }
+
+        .btn-main { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .btn-cancel { width: 100%; padding: 12px; background: #fff; color: var(--red); border: 1px solid var(--red); border-radius: 12px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="center-pin"><img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" width="45"></div>
     <div id="map"></div>
 
-    <div class="bottom-sheet">
-        <div id="booking-ui">
-            <div class="input-group" onclick="openSearch()">
-                <div style="width:10px; height:10px; background:#ea4335; border-radius:50%; margin-right:10px;"></div>
-                <input type="text" id="dest-display" placeholder="ဘယ်ကိုသွားမလဲ?" readonly>
-            </div>
-            <button class="btn-pick" onclick="startMapPick()">📍 မြေပုံပေါ်တွင် ရွေးမည်</button>
-            <div id="fare-area" style="text-align:center; padding: 10px; font-weight:bold; display:none;">
-                ခန့်မှန်းခြေ: <span id="fare-text">0</span> ကျပ်
-            </div>
-            <button id="book-btn" class="btn-main" style="display:none; margin-top:10px;" onclick="sendBooking()">🚕 အခုပဲခေါ်ဆိုမည်</button>
-        </div>
-
-        <div id="confirm-ui" style="display:none; text-align:center;">
-            <p id="picked-address" style="font-weight:bold; margin-bottom:15px;">နေရာရွေးချယ်ပါ</p>
-            <button class="btn-main" onclick="confirmPick()">ဤနေရာကို အတည်ပြုသည်</button>
-            <button class="btn-pick" onclick="cancelPick()">ပယ်ဖျက်မည်</button>
-        </div>
-
-        <div id="tracking-ui" class="loader-area">
-            <div id="spinner" class="spinner"></div>
-            <div id="status-text" style="font-weight: bold; margin-bottom: 10px;">ယာဉ်မောင်း ရှာဖွေနေပါသည်...</div>
-            <div id="driver-card" class="driver-card">
-                <div>ယာဉ်အမှတ်: <b id="carNo">-</b></div>
-                <div>ဖုန်း: <b id="phone">-</b></div>
-                <a id="callLink" href="#" class="btn-call">📞 အခုပဲ ဖုန်းခေါ်မည်</a>
-            </div>
-        </div>
+    <div class="loc-btn" onclick="goToMyLocation()">
+        <i class="fa-solid fa-location-crosshairs fa-lg"></i>
     </div>
 
-    <div id="search-overlay">
-        <button onclick="closeSearch()" style="border:none; background:none; font-size:24px; margin-bottom:15px;">✕</button>
-        <input type="text" id="search-input" placeholder="နေရာရိုက်ရှာပါ..." oninput="searchLocation(this.value)">
-        <div id="search-results"></div>
+    <div class="center-pin" id="pin-ui">
+        <i class="fa-solid fa-location-dot pin-icon" id="target-pin" style="color: var(--accent);"></i>
+    </div>
+
+    <div class="ui-box">
+        <div id="selection-ui">
+            <div class="input-row active pickup" id="p-row" onclick="setMode('pickup')">
+                <div class="dot" style="background: var(--accent);"></div>
+                <input type="text" class="input-box" id="p-addr" placeholder="အစမှတ် ရွေးချယ်ပါ" readonly>
+            </div>
+            <div class="input-row" id="d-row">
+                <div class="dot" style="background: var(--red);"></div>
+                <input type="text" class="input-box" id="d-addr" placeholder="ဘယ်ကိုသွားမလဲ?" onfocus="setMode('dest')" onkeyup="if(event.key === 'Enter') searchLocation()">
+            </div>
+            <div class="input-row" style="background: #fff; border: 1.5px solid #eee; margin-top: 5px;">
+                <i class="fa-solid fa-phone" style="margin-right: 10px; color: #777;"></i>
+                <input type="number" class="input-box" id="u-phone" placeholder="ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်">
+            </div>
+            <h3 id="fare-txt" style="text-align: center; margin: 10px 0; font-size: 18px; color: var(--success); display: none;">ခန့်မှန်းခြေ: - ကျပ်</h3>
+            <button id="main-btn" class="btn-main" onclick="handleAction()">အစမှတ် အတည်ပြုပါ</button>
+        </div>
+
+        <div id="waiting-ui">
+            <div class="loader"></div>
+            <h3 style="color: var(--primary); margin: 0;">ယာဉ်မောင်း ရှာဖွေနေသည်...</h3>
+            <p style="font-size: 13px; color: #777;">ခဏတာ စောင့်ဆိုင်းပေးပါ</p>
+            <button class="btn-cancel" onclick="cancelBooking()">ပယ်ဖျက်မည်</button>
+        </div>
+
+        <div id="live-ui">
+            <div style="color: var(--success); font-weight: bold; text-align: center; margin-bottom: 5px;">ယာဉ်မောင်း လက်ခံလိုက်ပါပြီ!</div>
+            <div class="driver-card">
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: #002b5c; margin-right: 15px; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fa-solid fa-user fa-lg"></i>
+                </div>
+                <div style="text-align: left; flex: 1;">
+                    <b id="d-name">ယာဉ်မောင်းနာမည်</b><br>
+                    <span id="d-car" style="color: var(--accent); font-weight: bold;">ယာဉ်နံပါတ် စစ်ဆေးနေဆဲ</span>
+                </div>
+                <a href="#" id="d-phone-btn" class="call-btn">
+                    <i class="fa fa-phone"></i>
+                </a>
+            </div>
+            <button class="btn-cancel" onclick="cancelBooking()">ခရီးစဉ် ပယ်ဖျက်မည်</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCkooRElTxGdSkQI5ya8t3CKxoLSKjOQOs",
-            authDomain: "ggtaxi-29fa2.firebaseapp.com",
-            databaseURL: "https://ggtaxi-29fa2-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "ggtaxi-29fa2",
-            storageBucket: "ggtaxi-29fa2.firebasestorage.app",
-            messagingSenderId: "826464431760",
-            appId: "1:826464431760:web:3569926d691d5b85b8f215"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        const SUPABASE_URL = 'https://qvnrrqjhzgaulfvrjcay.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        var map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+        let map, mode = 'pickup', routeControl, myLocMarker, driverMarker;
+        let pLoc = null, dLoc = null, pMarker, dMarker, currentFare = 0, currentBookingId = null;
+        const taxiIcon = L.divIcon({ html: '<i class="fa-solid fa-car-side" style="color:#e67e22; font-size:24px;"></i>', className: 'taxi-icon' });
 
-        let uLat, uLng, dLat, dLng, isPicking = false;
-        let routeLayer = null, destMarker = null, driverMarker = null;
-        let currentFare = 0, currentMile = 0, currentPolyline = null;
-
-        navigator.geolocation.getCurrentPosition(p => {
-            uLat = p.coords.latitude; uLng = p.coords.longitude;
-            map.setView([uLat, uLng], 15);
-            L.circleMarker([uLat, uLng], {color: '#1a73e8', radius: 7}).addTo(map);
-        });
-
-        function openSearch() { document.getElementById('search-overlay').style.display = 'block'; }
-        function closeSearch() { document.getElementById('search-overlay').style.display = 'none'; }
-
-        async function searchLocation(q) {
-            if(q.length < 3) return;
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=mm&limit=5`);
-            const data = await res.json();
-            let html = '';
-            data.forEach(item => {
-                html += `<div class="result-item" onclick="selectLocation(${item.lat}, ${item.lon}, '${item.display_name}')">
-                            📍 ${item.display_name.split(',')[0]}<br><small>${item.display_name}</small>
-                         </div>`;
-            });
-            document.getElementById('search-results').innerHTML = html;
-        }
-
-        function selectLocation(lat, lon, name) {
-            dLat = lat; dLng = lon;
-            document.getElementById('dest-display').value = name.split(',')[0];
-            closeSearch();
-            processRoute();
-        }
-
-        function startMapPick() {
-            isPicking = true;
-            document.getElementById('center-pin').style.display = 'block';
-            document.getElementById('booking-ui').style.display = 'none';
-            document.getElementById('confirm-ui').style.display = 'block';
-            map.on('moveend', async () => {
-                if(isPicking) {
-                    let c = map.getCenter();
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}`);
-                    const data = await res.json();
-                    document.getElementById('picked-address').innerText = data.display_name.split(',')[0] || "နေရာမသိပါ";
+        function initMap() {
+            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([21.9588, 96.0891], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+            
+            map.on('moveend', () => {
+                if(document.getElementById('pin-ui').style.display !== 'none') {
+                    reverseGeocode(map.getCenter().lat, map.getCenter().lng);
                 }
             });
+            goToMyLocation();
         }
 
-        function confirmPick() {
-            let c = map.getCenter();
-            dLat = c.lat; dLng = c.lng;
-            document.getElementById('dest-display').value = document.getElementById('picked-address').innerText;
-            cancelPick();
-            processRoute();
-        }
-
-        function cancelPick() {
-            isPicking = false;
-            document.getElementById('center-pin').style.display = 'none';
-            document.getElementById('confirm-ui').style.display = 'none';
-            document.getElementById('booking-ui').style.display = 'block';
-        }
-
-        async function processRoute() {
-            if(routeLayer) map.removeLayer(routeLayer);
-            if(destMarker) map.removeLayer(destMarker);
-
-            destMarker = L.marker([dLat, dLng]).addTo(map);
-            const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dLng},${dLat}?overview=full&geometries=geojson`);
-            const data = await res.json();
-
-            if(data.code === 'Ok') {
-                currentPolyline = data.routes[0].geometry;
-                routeLayer = L.geoJSON(currentPolyline, {style: {color: '#1a73e8', weight: 5}}).addTo(map);
-                map.fitBounds(routeLayer.getBounds(), {padding: [50, 50]});
-
-                currentMile = (data.routes[0].distance / 1609.34).toFixed(2);
-                currentFare = Math.max(1500, Math.round(currentMile * 1000));
-                
-                document.getElementById('fare-text').innerText = currentFare;
-                document.getElementById('fare-area').style.display = 'block';
-                document.getElementById('book-btn').style.display = 'block';
+        function goToMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                    map.setView([lat, lng], 16);
+                    if(myLocMarker) map.removeLayer(myLocMarker);
+                    myLocMarker = L.circleMarker([lat, lng], { radius: 7, fillColor: "#007bff", color: "white", weight: 2, fillOpacity: 1 }).addTo(map);
+                    if(!pLoc) reverseGeocode(lat, lng);
+                }, null, {enableHighAccuracy: true});
             }
         }
 
-        function sendBooking() {
-            if(!dLat || !currentFare) return alert("ကျေးဇူးပြု၍ နေရာအရင်ရွေးပါ");
-            
-            const bookingRef = db.ref('bookings').push();
-            bookingRef.set({
-                status: 'pending',
-                dest: document.getElementById('dest-display').value,
-                fare: currentFare,
-                mile: currentMile,
-                lat: uLat, lng: uLng,
-                destLat: dLat, destLng: dLng,
-                polyline: currentPolyline,
-                timestamp: Date.now()
-            }).then(() => {
-                document.getElementById('booking-ui').style.display = 'none';
-                document.getElementById('tracking-ui').style.display = 'block';
-                listenToBooking(bookingRef.key);
-            }).catch(err => alert("Error: " + err.message));
+        async function reverseGeocode(lat, lng) {
+            const elId = mode === 'pickup' ? 'p-addr' : 'd-addr';
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                document.getElementById(elId).value = data.display_name.split(',')[0] || "Unknown Location";
+                if(mode === 'pickup') pLoc = {lat, lng}; else dLoc = {lat, lng};
+            } catch(e) {}
         }
 
-        function listenToBooking(id) {
-            const currentRef = db.ref('bookings/' + id);
-            currentRef.on('value', (snap) => {
-                const data = snap.val();
-                if(!data) return;
-                if(data.status === 'on_going') {
-                    document.getElementById('spinner').style.display = 'none';
-                    document.getElementById('status-text').innerText = "ယာဉ်မောင်း လက်ခံလိုက်ပါပြီ ✅";
-                    document.getElementById('driver-card').style.display = 'block';
-                    document.getElementById('carNo').innerText = data.driver_car || "-";
-                    document.getElementById('phone').innerText = data.driver_phone || "-";
-                    document.getElementById('callLink').href = "tel:" + data.driver_phone;
-                    if(data.driver_lat && data.driver_lng) {
-                        if (driverMarker) map.removeLayer(driverMarker);
-                        driverMarker = L.marker([data.driver_lat, data.driver_lng], {
-                            icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854831.png', iconSize: [35, 35] })
-                        }).addTo(map);
-                    }
-                } else if(data.status === 'ended') {
-                    currentRef.off();
-                    alert("ခရီးစဉ်ပြီးဆုံးပါပြီ။");
-                    window.location.reload();
-                }
-            });
+        async function searchLocation() {
+            const query = document.getElementById('d-addr').value;
+            if(!query) return;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+                const data = await res.json();
+                if(data.length > 0) map.setView([data[0].lat, data[0].lon], 16);
+            } catch(e) {}
         }
+
+        function setMode(m) {
+            mode = m;
+            document.querySelectorAll('.input-row').forEach(r => r.classList.remove('active', 'pickup', 'dest'));
+            document.getElementById(m === 'pickup' ? 'p-row' : 'd-row').classList.add('active', m);
+            document.getElementById('target-pin').style.color = m === 'pickup' ? "#007bff" : "#ff4757";
+            document.getElementById('pin-ui').style.display = 'block';
+            if(routeControl) map.removeControl(routeControl);
+            document.getElementById('fare-txt').style.display = 'none';
+            document.getElementById('main-btn').innerText = m === 'pickup' ? "အစမှတ် အတည်ပြုပါ" : "သွားမည့်နေရာ အတည်ပြုပါ";
+        }
+
+        function handleAction() {
+            const c = map.getCenter();
+            if(mode === 'pickup') {
+                if(pMarker) map.removeLayer(pMarker);
+                pMarker = L.circleMarker([c.lat, c.lng], { radius: 8, fillColor: "#007bff", color: "white", weight: 3, fillOpacity: 1 }).addTo(map);
+                setMode('dest');
+            } else if(mode === 'dest' && !routeControl) {
+                if(dMarker) map.removeLayer(dMarker);
+                dMarker = L.circleMarker([c.lat, c.lng], { radius: 8, fillColor: "#ff4757", color: "white", weight: 3, fillOpacity: 1 }).addTo(map);
+                drawRoute();
+            } else {
+                startBooking();
+            }
+        }
+
+        function drawRoute() {
+            document.getElementById('pin-ui').style.display = 'none';
+            routeControl = L.Routing.control({
+                waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
+                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }] },
+                createMarker: () => null
+            }).on('routesfound', (e) => {
+                const dist = e.routes[0].summary.totalDistance / 1000;
+                currentFare = Math.round((dist * 1200) + 1500); 
+                document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ်`;
+                document.getElementById('fare-txt').style.display = 'block';
+                document.getElementById('main-btn').innerText = "🚕 အခုပဲ ခေါ်ဆိုမည်";
+                map.fitBounds(L.latLngBounds([pLoc.lat, pLoc.lng], [dLoc.lat, dLoc.lng]), { padding: [50, 100] });
+            }).addTo(map);
+        }
+
+        async function startBooking() {
+            const phone = document.getElementById('u-phone').value;
+            if(!phone || phone.length < 7) return alert("ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ");
+
+            document.getElementById('selection-ui').style.display = 'none';
+            document.getElementById('waiting-ui').style.display = 'flex';
+
+            const { data, error } = await _supabase.from('bookings').insert([{
+                u_phone: phone, u_lat: pLoc.lat, u_lng: pLoc.lng, dest_lat: dLoc.lat, dest_lng: dLoc.lng,
+                pickup_addr: document.getElementById('p-addr').value, dest_addr: document.getElementById('d-addr').value,
+                fare: currentFare, status: 'pending'
+            }]).select();
+
+            if (!error) {
+                currentBookingId = data[0].id;
+                trackBooking(currentBookingId);
+            }
+        }
+
+        function trackBooking(id) {
+            _supabase.channel('tracking').on('postgres_changes', { 
+                event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
+            }, payload => {
+                const b = payload.new;
+                if (b.status === 'accepted') {
+                    showDriverDetails(b);
+                }
+                // ယာဉ်မောင်းတည်နေရာ Update လုပ်ခြင်း
+                if (b.driver_lat && b.status === 'accepted') {
+                    updateDriverMarker(b.driver_lat, b.driver_lng);
+                }
+            }).subscribe();
+        }
+
+        async function cancelBooking() {
+            if (!currentBookingId) {
+                location.reload();
+                return;
+            }
+            const { error } = await _supabase.from('bookings').update({ status: 'cancelled' }).eq('id', currentBookingId);
+            if (!error) {
+                alert("ခရီးစဉ်ကို ပယ်ဖျက်လိုက်ပါပြီ။");
+                location.reload();
+            } else {
+                location.reload();
+            }
+        }
+
+        function showDriverDetails(data) {
+            document.getElementById('waiting-ui').style.display = 'none';
+            document.getElementById('live-ui').style.display = 'block';
+
+            document.getElementById('d-name').innerText = data.driver_name || "ယာဉ်မောင်း";
+            document.getElementById('d-car').innerText = data.driver_car || "ယာဉ်နံပါတ် စစ်ဆေးနေဆဲ";
+            
+            if(data.driver_phone) {
+                const callBtn = document.getElementById('d-phone-btn');
+                callBtn.href = "tel:" + data.driver_phone;
+            }
+        }
+
+        function updateDriverMarker(lat, lng) {
+            if (!driverMarker) {
+                driverMarker = L.marker([lat, lng], { icon: taxiIcon }).addTo(map);
+            } else {
+                driverMarker.setLatLng([lat, lng]);
+            }
+        }
+
+        window.onload = initMap;
     </script>
 </body>
 </html>
