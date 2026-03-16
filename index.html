@@ -99,7 +99,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script>
         const SUPABASE_URL = 'https://qvnrrqjhzgaulfvrjcay.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
@@ -159,7 +159,7 @@
             document.getElementById(m === 'pickup' ? 'p-row' : 'd-row').classList.add('active', m);
             document.getElementById('target-pin').style.color = m === 'pickup' ? "#007bff" : "#ff4757";
             document.getElementById('pin-ui').style.display = 'block';
-            if(routeControl) map.removeControl(routeControl);
+            if(routeControl) { map.removeControl(routeControl); routeControl = null; }
             document.getElementById('fare-txt').style.display = 'none';
             document.getElementById('main-btn').innerText = m === 'pickup' ? "အစမှတ် အတည်ပြုပါ" : "သွားမည့်နေရာ အတည်ပြုပါ";
         }
@@ -169,10 +169,12 @@
             if(mode === 'pickup') {
                 if(pMarker) map.removeLayer(pMarker);
                 pMarker = L.circleMarker([c.lat, c.lng], { radius: 8, fillColor: "#007bff", color: "white", weight: 3, fillOpacity: 1 }).addTo(map);
+                pLoc = {lat: c.lat, lng: c.lng};
                 setMode('dest');
             } else if(mode === 'dest' && !routeControl) {
                 if(dMarker) map.removeLayer(dMarker);
                 dMarker = L.circleMarker([c.lat, c.lng], { radius: 8, fillColor: "#ff4757", color: "white", weight: 3, fillOpacity: 1 }).addTo(map);
+                dLoc = {lat: c.lat, lng: c.lng};
                 drawRoute();
             } else {
                 startBooking();
@@ -181,16 +183,37 @@
 
         function drawRoute() {
             document.getElementById('pin-ui').style.display = 'none';
+            
+            // Router Setting ကို ပိုတိကျအောင် ပြင်ဆင်ထားပါတယ်
             routeControl = L.Routing.control({
                 waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
-                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }] },
+                router: L.Routing.osrmv1({
+                    serviceUrl: 'https://router.project-osrm.org/route/v1',
+                    profile: 'car'
+                }),
+                lineOptions: {
+                    styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }],
+                    extendToWaypoints: true,
+                    missingRouteTolerance: 0
+                },
+                addWaypoints: false,
+                routeWhileDragging: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                showAlternatives: false,
                 createMarker: () => null
             }).on('routesfound', (e) => {
-                const dist = e.routes[0].summary.totalDistance / 1000;
+                const routes = e.routes;
+                const summary = routes[0].summary;
+                const dist = summary.totalDistance / 1000; // km
+                
+                // Fare Calculation
                 currentFare = Math.round((dist * 1200) + 1500); 
-                document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ်`;
+                document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ် (${dist.toFixed(2)} km)`;
                 document.getElementById('fare-txt').style.display = 'block';
                 document.getElementById('main-btn').innerText = "🚕 အခုပဲ ခေါ်ဆိုမည်";
+                
+                // Zoom ကို လမ်းကြောင်းပေါ် အတိအကျ ချိန်ညှိခြင်း
                 map.fitBounds(L.latLngBounds([pLoc.lat, pLoc.lng], [dLoc.lat, dLoc.lng]), { padding: [50, 100] });
             }).addTo(map);
         }
@@ -219,20 +242,13 @@
                 event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
             }, payload => {
                 const b = payload.new;
-                
-                // ၁။ Driver က လက်ခံလိုက်ချိန်
                 if (b.status === 'accepted') {
                     showDriverDetails(b);
                 }
-                
-                // ၂။ Driver က ခရီးစဉ်အဆုံးသတ်လိုက်ချိန် (completed သို့မဟုတ် finished)
-                // စာလုံးအကြီးအသေးပါ စစ်နိုင်အောင် lowercase ပြောင်းစစ်ထားပါတယ်
                 if (b.status.toLowerCase() === 'completed' || b.status.toLowerCase() === 'finished') {
                     alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။");
                     location.reload(); 
                 }
-
-                // ၃။ ယာဉ်မောင်းတည်နေရာ ပြောင်းလဲမှု
                 if (b.driver_lat && b.status === 'accepted') {
                     updateDriverMarker(b.driver_lat, b.driver_lng);
                 }
