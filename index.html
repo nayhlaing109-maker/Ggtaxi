@@ -181,10 +181,29 @@
             }
         }
 
-        function drawRoute() {
+        // Supabase Settings Table ထဲက ဈေးနှုန်းတွေကို လှမ်းဖတ်ခြင်း
+        async function getPricingConfig() {
+            try {
+                const { data, error } = await _supabase
+                    .from('settings')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+                if (error) throw error;
+                return data;
+            } catch (err) {
+                console.error("Pricing error:", err);
+                return { base: 2500, km_price: 1000, platform: 500 }; // Fail-safe values
+            }
+        }
+
+        async function drawRoute() {
             document.getElementById('pin-ui').style.display = 'none';
             
-            // Router Setting ကို ပိုတိကျအောင် ပြင်ဆင်ထားပါတယ်
+            // ၁။ Database မှ Pricing Config ကို အရင်ယူပါသည်
+            const config = await getPricingConfig();
+
+            // ၂။ လမ်းကြောင်းဆွဲခြင်း
             routeControl = L.Routing.control({
                 waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
                 router: L.Routing.osrmv1({
@@ -203,17 +222,16 @@
                 showAlternatives: false,
                 createMarker: () => null
             }).on('routesfound', (e) => {
-                const routes = e.routes;
-                const summary = routes[0].summary;
+                const summary = e.routes[0].summary;
                 const dist = summary.totalDistance / 1000; // km
                 
-                // Fare Calculation
-                currentFare = Math.round((dist * 1200) + 1500); 
+                // ၃။ Admin သတ်မှတ်ထားသော Logic အတိုင်း တွက်ချက်ခြင်း
+                currentFare = Math.round(config.base + (dist * config.km_price) + config.platform);
+                
                 document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ် (${dist.toFixed(2)} km)`;
                 document.getElementById('fare-txt').style.display = 'block';
                 document.getElementById('main-btn').innerText = "🚕 အခုပဲ ခေါ်ဆိုမည်";
                 
-                // Zoom ကို လမ်းကြောင်းပေါ် အတိအကျ ချိန်ညှိခြင်း
                 map.fitBounds(L.latLngBounds([pLoc.lat, pLoc.lng], [dLoc.lat, dLoc.lng]), { padding: [50, 100] });
             }).addTo(map);
         }
