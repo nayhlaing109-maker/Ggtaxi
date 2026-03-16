@@ -219,10 +219,20 @@
                 event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
             }, payload => {
                 const b = payload.new;
+                
+                // ၁။ Driver က လက်ခံလိုက်ချိန်
                 if (b.status === 'accepted') {
                     showDriverDetails(b);
                 }
-                // ယာဉ်မောင်းတည်နေရာ Update လုပ်ခြင်း
+                
+                // ၂။ Driver က ခရီးစဉ်အဆုံးသတ်လိုက်ချိန် (completed သို့မဟုတ် finished)
+                // စာလုံးအကြီးအသေးပါ စစ်နိုင်အောင် lowercase ပြောင်းစစ်ထားပါတယ်
+                if (b.status.toLowerCase() === 'completed' || b.status.toLowerCase() === 'finished') {
+                    alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။");
+                    location.reload(); 
+                }
+
+                // ၃။ ယာဉ်မောင်းတည်နေရာ ပြောင်းလဲမှု
                 if (b.driver_lat && b.status === 'accepted') {
                     updateDriverMarker(b.driver_lat, b.driver_lng);
                 }
