@@ -122,8 +122,7 @@
             <i class="fa-solid fa-arrow-left fa-lg" onclick="showTab('map')"></i>
             <h2 style="margin:0; font-size: 18px;">ခရီးစဉ်မှတ်တမ်းများ</h2>
         </div>
-        <div class="overlay-content" id="history-list">
-            </div>
+        <div class="overlay-content" id="history-list"></div>
     </div>
 
     <div id="profile-overlay" class="overlay">
@@ -131,8 +130,7 @@
             <i class="fa-solid fa-arrow-left fa-lg" onclick="showTab('map')"></i>
             <h2 style="margin:0; font-size: 18px;">ကျွန်ုပ်၏ အချက်အလက်</h2>
         </div>
-        <div class="overlay-content" id="profile-data">
-            </div>
+        <div class="overlay-content" id="profile-data"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -144,6 +142,27 @@
         let map, myMarker, userMarker, isOnline = false, pollInterval;
         let myPos = { lat: 21.95, lng: 96.08 }, activeJob = null, driverId = null, driverData = null;
         let appSettings = { comm: 20, platform: 500 };
+
+        // 🔥 Auto Login Check
+        window.onload = async () => {
+            const savedId = localStorage.getItem('driver_id');
+            if (savedId) {
+                const { data } = await _supabase.from('drivers').select('*').eq('phone', savedId).single();
+                if (data && !data.is_banned) {
+                    driverId = data.phone;
+                    driverData = data;
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('main-app').style.display = 'block';
+                    document.getElementById('driver-balance').innerText = data.balance.toLocaleString();
+                    
+                    const { data: config } = await _supabase.from('settings').select('*').eq('id', 1).single();
+                    if(config) appSettings = config;
+                    initApp();
+                } else {
+                    localStorage.clear();
+                }
+            }
+        };
 
         async function handleLogin() {
             const id = document.getElementById('login-id').value;
@@ -277,9 +296,10 @@
             const net = fare - comm - plat;
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
-                    <div class="receipt-row"><span>စုစုပေါင်း</span> <span>${fare.toLocaleString()} K</span></div>
-                    <div class="receipt-row" style="color:red;"><span>ဝန်ဆောင်ခ</span> <span>- ${(comm+plat).toLocaleString()} K</span></div>
-                    <div class="receipt-total"><span>အသားတင်</span> <span>${net.toLocaleString()} K</span></div>
+                    <div class="receipt-row"><span>စုစုပေါင်း ရငွေ</span> <span>${fare.toLocaleString()} K</span></div>
+                    <div class="receipt-row" style="color:red;"><span>ဝန်ဆောင်ခ (${appSettings.comm}%)</span> <span>- ${comm.toLocaleString()} K</span></div>
+                    <div class="receipt-row" style="color:red;"><span>Platform Fee</span> <span>- ${plat.toLocaleString()} K</span></div>
+                    <div class="receipt-total"><span>အသားတင် ရငွေ</span> <span>${net.toLocaleString()} K</span></div>
                     <button class="btn btn-success" onclick="completeJob(${comm+plat})">အတည်ပြုသည်</button>
                 </div>`;
         }
@@ -288,15 +308,14 @@
             const { data } = await _supabase.from('drivers').select('balance').eq('phone', driverId).single();
             await _supabase.from('drivers').update({ balance: data.balance - deduction }).eq('phone', driverId);
             await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
-            alert("အောင်မြင်ပါပြီ");
-            location.reload();
+            alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။");
+            // 🔥 ခရီးစဉ်အပြီး Map သို့ ပြန်ညွှန်းခြင်း
+            location.reload(); 
         }
 
-        // 🔥 Tab Management
         async function showTab(tab) {
             document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
             if (tab === 'map') {
                 document.querySelector('.nav-item:nth-child(1)').classList.add('active');
             } else if (tab === 'history') {
