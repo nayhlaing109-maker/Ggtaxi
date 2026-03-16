@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyaPay Admin - Fixed Pricing Logic</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --sidebar-bg: #1a2235; --main-bg: #f8f9fc; --primary: #002b5c; --accent: #007bff; --red: #ff4757; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: var(--main-bg); overflow: hidden; }
+        .sidebar { width: 260px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; z-index: 1100; }
+        .sidebar-brand { padding: 25px 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid #2e3951; }
+        .nav-item { padding: 15px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #adb5bd; transition: 0.3s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); color: white; }
+        .content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .section { display: none; padding: 25px; box-sizing: border-box; }
+        .section.active { display: block; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 25px; border-radius: 15px; border-left: 5px solid var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .dispatch-wrapper { display: grid; grid-template-columns: 360px 1fr; gap: 20px; height: calc(100vh - 100px); }
+        .form-card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        #map-container { position: relative; height: 100%; border-radius: 20px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        .input-row { display: flex; align-items: center; background: #f8f9fa; border: 2px solid transparent; border-radius: 12px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
+        .input-row.active { border-color: var(--accent); background: white; }
+        .input-row.active.dest { border-color: var(--red); }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
+        .center-pin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 100; pointer-events: none; }
+        .btn-main { width: 100%; padding: 18px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+        .setting-field { display: flex; flex-direction: column; gap: 5px; }
+        .setting-field label { font-size: 13px; font-weight: bold; color: var(--primary); }
+        .reg-input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-active { background: #cce5ff; color: #004085; }
+        .badge-completed { background: #d4edda; color: #155724; }
+        .btn-edit { background: #f1c40f; color: #000; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .leaflet-routing-container { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-brand">PyaPay Admin</div>
+    <div class="nav-item active" onclick="showSection('dashboard')"><i class="fa-solid fa-gauge"></i> Dashboard</div>
+    <div class="nav-item" onclick="showSection('dispatch')"><i class="fa-solid fa-paper-plane"></i> Manual Dispatch</div>
+    <div class="nav-item" onclick="showSection('drivers')"><i class="fa-solid fa-users"></i> Drivers</div>
+    <div class="nav-item" onclick="showSection('trips')"><i class="fa-solid fa-route"></i> Trips</div>
+    <div class="nav-item" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i> Settings</div>
+</div>
+
+<div class="content">
+    <div id="dashboard" class="section active">
+        <h2>Dashboard Overview</h2>
+        <div class="stat-grid">
+            <div class="stat-card"><h3>TOTAL DRIVERS</h3><h2 id="st-drivers">0</h2></div>
+            <div class="stat-card" style="border-left-color: #2ecc71;"><h3>TOTAL TRIPS</h3><h2 id="st-bookings">0</h2></div>
+        </div>
+        <button class="btn-main" style="width:auto; padding: 10px 30px;" onclick="loadData()">Sync Database</button>
+    </div>
+
+    <div id="dispatch" class="section">
+        <div class="dispatch-wrapper">
+            <div class="form-card">
+                <h3>Manual Dispatch</h3>
+                <input type="number" id="u_phone" placeholder="Passenger Phone" style="width:100%; padding:15px; margin-bottom:15px; border-radius:12px; border:1px solid #ddd; box-sizing:border-box;">
+                <div class="input-row active" id="p-row" onclick="setMode('pickup')">
+                    <div class="dot" style="background: var(--accent);"></div>
+                    <input type="text" id="p-addr" style="border:none; background:transparent; outline:none; width:100%;" placeholder="Pickup (A)" readonly>
+                </div>
+                <div class="input-row" id="d-row" onclick="setMode('dest')">
+                    <div class="dot" style="background: var(--red);"></div>
+                    <input type="text" id="d-addr" style="border:none; background:transparent; outline:none; width:100%;" placeholder="Destination (B)" readonly>
+                </div>
+                <div id="fare-box" style="text-align:center; padding:15px; background:#f1f3f4; border-radius:15px; margin:15px 0; display:none;">
+                    <small>Estimated Fare</small>
+                    <h2 id="fare-txt" style="margin:5px 0; color:#2ecc71;">0 K</h2>
+                    <small id="fare-breakdown" style="font-size: 10px; color: #888;"></small>
+                </div>
+                <button id="main-btn" class="btn-main" onclick="handleAction()">Confirm Pickup (A)</button>
+            </div>
+            <div id="map-container">
+                <div id="map"></div>
+                <div class="center-pin" id="pin-ui"><i class="fa-solid fa-location-dot" id="target-pin" style="font-size: 40px; color: var(--accent);"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings" class="section">
+        <h2>Pricing & Platform Settings</h2>
+        <div class="form-card">
+            <div class="setting-grid">
+                <div class="setting-field"><label>Commission (%)</label><input type="number" id="cfg-comm" class="reg-input" placeholder="e.g. 20"></div>
+                <div class="setting-field"><label>Platform Fee (Fixed K)</label><input type="number" id="cfg-platform" class="reg-input" placeholder="e.g. 500"></div>
+                <div class="setting-field"><label>Base Fare (Starting K)</label><input type="number" id="cfg-base" class="reg-input" placeholder="e.g. 2500"></div>
+                <div class="setting-field"><label>Price per KM (K)</label><input type="number" id="cfg-km" class="reg-input" placeholder="e.g. 1000"></div>
+            </div>
+            <button class="btn-main" style="width: auto; padding: 15px 40px; background: #2ecc71; margin-top: 20px;" onclick="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+
+    <div id="drivers" class="section">
+        <h2>Driver Management</h2>
+        <table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Balance</th><th>Action</th></tr></thead><tbody id="driver-list"></tbody></table>
+    </div>
+    <div id="trips" class="section">
+        <h2>Trip Management</h2>
+        <table><thead><tr><th>ID</th><th>Passenger</th><th>Fare</th><th>Status</th><th>Update</th></tr></thead><tbody id="trip-list"></tbody></table>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<script>
+    const _supabase = supabase.createClient('https://qvnrrqjhzgaulfvrjcay.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc');
+    let map, mode = 'pickup', routeControl, pLoc = null, dLoc = null, currentFare = 0;
+
+    // 🔥 အသေရေးထားတဲ့ variable တွေ လုံးဝမသုံးတော့ပါ
+    function getLiveConfig() {
+        const stored = localStorage.getItem('pyaPayConfig');
+        return stored ? JSON.parse(stored) : { comm: 0, platform: 0, base: 0, km: 0 };
+    }
+
+    function saveSettings() {
+        const cfg = {
+            comm: parseInt(document.getElementById('cfg-comm').value) || 0,
+            platform: parseInt(document.getElementById('cfg-platform').value) || 0,
+            base: parseInt(document.getElementById('cfg-base').value) || 0,
+            km: parseInt(document.getElementById('cfg-km').value) || 0
+        };
+        localStorage.setItem('pyaPayConfig', JSON.stringify(cfg));
+        alert("Settings Updated!");
+    }
+
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'dispatch') { setTimeout(() => map.invalidateSize(), 300); }
+    }
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([21.9588, 96.0891], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        map.on('moveend', () => {
+            if(!routeControl) {
+                const center = map.getCenter();
+                if(mode === 'pickup') pLoc = center; else dLoc = center;
+                updateAddress(center.lat, center.lng);
+            }
+        });
+    }
+
+    async function updateAddress(lat, lng) {
+        const el = document.getElementById(mode === 'pickup' ? 'p-addr' : 'd-addr');
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await res.json();
+            el.value = data.display_name.split(',')[0] || "Location Selected";
+        } catch(e) { el.value = "Selected"; }
+    }
+
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.input-row').forEach(r => r.classList.remove('active', 'dest'));
+        document.getElementById(m === 'pickup' ? 'p-row' : 'd-row').classList.add('active');
+        if(m === 'dest') document.getElementById('d-row').classList.add('dest');
+        document.getElementById('target-pin').style.color = m === 'pickup' ? "#007bff" : "#ff4757";
+        if(routeControl) { map.removeControl(routeControl); routeControl = null; }
+    }
+
+    function handleAction() {
+        if(mode === 'pickup') setMode('dest');
+        else if(mode === 'dest' && !routeControl) drawRoute();
+        else submitBooking();
+    }
+
+    function drawRoute() {
+        // 🔥 ခရီးစဉ်တွက်ခါနီးတိုင်း localStorage မှ Live တန်ဖိုးကို ယူသည်
+        const live = getLiveConfig();
+        
+        routeControl = L.Routing.control({
+            waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
+            createMarker: () => null
+        }).on('routesfound', (e) => {
+            const dist = e.routes[0].summary.totalDistance / 1000;
+            
+            // 🔥 သင် Settings မှာ ရိုက်ထားတဲ့ တန်ဖိုးတွေအတိုင်းပဲ တွက်ပါမယ်
+            currentFare = Math.round(live.base + (dist * live.km) + live.platform);
+            
+            document.getElementById('fare-txt').innerText = `${currentFare.toLocaleString()} K`;
+            document.getElementById('fare-breakdown').innerText = `Base: ${live.base} | KM: ${live.km} | Fee: ${live.platform}`;
+            document.getElementById('fare-box').style.display = 'block';
+            document.getElementById('main-btn').innerText = "Submit Booking";
+        }).addTo(map);
+    }
+
+    async function submitBooking() {
+        const phone = document.getElementById('u_phone').value;
+        if(!phone) return alert("Phone needed");
+        const { error } = await _supabase.from('bookings').insert([{
+            u_phone: phone, u_lat: pLoc.lat, u_lng: pLoc.lng,
+            dest_lat: dLoc.lat, dest_lng: dLoc.lng, fare: currentFare, status: 'pending'
+        }]);
+        if(!error) location.reload();
+    }
+
+    async function loadData() {
+        const { data: drv } = await _supabase.from('drivers').select('*').order('id');
+        const { data: bks } = await _supabase.from('bookings').select('*').order('id', { ascending: false });
+        
+        // Settings UI မှာ လက်ရှိသိမ်းထားတာတွေ ပြန်ပြမယ်
+        const current = getLiveConfig();
+        document.getElementById('cfg-comm').value = current.comm;
+        document.getElementById('cfg-platform').value = current.platform;
+        document.getElementById('cfg-base').value = current.base;
+        document.getElementById('cfg-km').value = current.km;
+
+        document.getElementById('st-drivers').innerText = drv ? drv.length : 0;
+        document.getElementById('st-bookings').innerText = bks ? bks.length : 0;
+        
+        document.getElementById('driver-list').innerHTML = drv ? drv.map(d => `<tr><td>${d.id}</td><td>${d.driver_name}</td><td>${d.phone}</td><td>${d.balance} K</td><td><button class="btn-edit" onclick="editBalance(${d.id},${d.balance})">Edit</button></td></tr>`).join('') : '';
+        document.getElementById('trip-list').innerHTML = bks ? bks.map(b => `<tr><td>#${b.id}</td><td>${b.u_phone}</td><td>${b.fare} K</td><td><span class="badge badge-${b.status}">${b.status}</span></td><td><select onchange="updateStatus(${b.id},this.value)"><option value="pending" ${b.status=='pending'?'selected':''}>Pending</option><option value="completed" ${b.status=='completed'?'selected':''}>Done</option></select></td></tr>`).join('') : '';
+    }
+
+    async function editBalance(id, cur) {
+        const amt = prompt("New Balance:", cur);
+        if(amt) { await _supabase.from('drivers').update({ balance: parseInt(amt) }).eq('id', id); loadData(); }
+    }
+
+    async function updateStatus(id, st) {
+        await _supabase.from('bookings').update({ status: st }).eq('id', id); loadData();
+    }
+
+    window.onload = () => { initMap(); loadData(); };
+</script>
+</body>
+</html>
