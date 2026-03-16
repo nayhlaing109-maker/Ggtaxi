@@ -37,10 +37,23 @@
 
         #recenter-btn { position: absolute; right: 20px; bottom: 340px; z-index: 1006; background: white; width: 50px; height: 50px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--accent); }
 
-        .ui-container { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 1006; padding: 20px; pointer-events: none; }
+        .ui-container { position: absolute; bottom: 80px; left: 0; width: 100%; z-index: 1006; padding: 20px; pointer-events: none; }
         #ui-render { pointer-events: auto; max-width: 500px; margin: 0 auto; }
         .card { background: white; border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 70px; background: white; z-index: 1010; display: flex; border-top: 1px solid #eee; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #999; font-size: 11px; cursor: pointer; transition: 0.3s; }
+        .nav-item.active { color: var(--accent); }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+
+        /* Full Screen Overlays */
+        .overlay { position: fixed; inset: 0; background: white; z-index: 1050; display: none; flex-direction: column; padding-top: env(safe-area-inset-top); }
+        .overlay-header { padding: 20px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #eee; }
+        .overlay-content { flex: 1; overflow-y: auto; padding: 20px; }
+
+        .history-item { padding: 15px; border-radius: 15px; background: #f8f9fa; margin-bottom: 12px; border: 1px solid #eee; }
+        .profile-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f1f1f1; }
 
         .btn { width: 100%; padding: 14px; border-radius: 14px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin-top: 10px; }
         .btn-primary { background: var(--accent); color: white; }
@@ -50,6 +63,8 @@
         
         .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .receipt-total { border-top: 2px solid #f1f1f1; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: var(--success); }
+        
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -88,6 +103,36 @@
         <div class="ui-container">
             <div id="ui-render"></div>
         </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="showTab('map')">
+                <i class="fa-solid fa-map"></i><span>မြေပုံ</span>
+            </div>
+            <div class="nav-item" onclick="showTab('history')">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>မှတ်တမ်း</span>
+            </div>
+            <div class="nav-item" onclick="showTab('profile')">
+                <i class="fa-solid fa-user-circle"></i><span>ကျွန်ုပ်</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="history-overlay" class="overlay">
+        <div class="overlay-header">
+            <i class="fa-solid fa-arrow-left fa-lg" onclick="showTab('map')"></i>
+            <h2 style="margin:0; font-size: 18px;">ခရီးစဉ်မှတ်တမ်းများ</h2>
+        </div>
+        <div class="overlay-content" id="history-list">
+            </div>
+    </div>
+
+    <div id="profile-overlay" class="overlay">
+        <div class="overlay-header">
+            <i class="fa-solid fa-arrow-left fa-lg" onclick="showTab('map')"></i>
+            <h2 style="margin:0; font-size: 18px;">ကျွန်ုပ်၏ အချက်အလက်</h2>
+        </div>
+        <div class="overlay-content" id="profile-data">
+            </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -97,8 +142,8 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let map, myMarker, userMarker, isOnline = false, pollInterval;
-        let myPos = { lat: 21.95, lng: 96.08 }, activeJob = null, driverId = null;
-        let adminCommissionPercent = 14; 
+        let myPos = { lat: 21.95, lng: 96.08 }, activeJob = null, driverId = null, driverData = null;
+        let appSettings = { comm: 20, platform: 500 };
 
         async function handleLogin() {
             const id = document.getElementById('login-id').value;
@@ -108,13 +153,14 @@
             if (data) {
                 if (data.is_banned) return alert("Account banned!");
                 driverId = data.phone;
+                driverData = data;
                 localStorage.setItem('driver_id', driverId);
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('main-app').style.display = 'block';
                 document.getElementById('driver-balance').innerText = data.balance.toLocaleString();
                 
-                const { data: settings } = await _supabase.from('settings').select('commission_percent').single();
-                if(settings) adminCommissionPercent = settings.commission_percent;
+                const { data: config } = await _supabase.from('settings').select('*').eq('id', 1).single();
+                if(config) appSettings = config;
 
                 initApp();
             } else {
@@ -136,7 +182,6 @@
             navigator.geolocation.watchPosition(async pos => {
                 myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 myMarker.setLatLng([myPos.lat, myPos.lng]);
-                
                 if (activeJob) {
                     await _supabase.from('bookings').update({ driver_lat: myPos.lat, driver_lng: myPos.lng }).eq('id', activeJob.id);
                 }
@@ -176,10 +221,7 @@
                             <button class="btn btn-primary" style="flex:2;" onclick="acceptJob(${job.id})">လက်ခံမည်</button>
                         </div>
                     </div>`;
-                
-                if(!userMarker) {
-                    userMarker = L.marker([job.u_lat, job.u_lng]).addTo(map).bindPopup("ခရီးသည် ဤနေရာတွင်ရှိသည်").openPopup();
-                }
+                if(!userMarker) userMarker = L.marker([job.u_lat, job.u_lng]).addTo(map);
                 map.flyTo([job.u_lat, job.u_lng], 16);
             } else {
                 renderArea.innerHTML = "";
@@ -187,37 +229,24 @@
             }
         }
 
-        function rejectJob() {
-            document.getElementById('ui-render').innerHTML = "";
+        function rejectJob() { 
+            document.getElementById('ui-render').innerHTML = ""; 
             if(userMarker) { map.removeLayer(userMarker); userMarker = null; }
-            alert("ခရီးစဉ်ကို ငြင်းပယ်လိုက်ပါသည်။");
         }
 
         async function acceptJob(id) {
-            const { data: dInfo } = await _supabase.from('drivers').select('driver_name, car_no').eq('phone', driverId).single();
-            
-            const { data, error } = await _supabase.from('bookings').update({ 
-                status: 'accepted', 
-                driver_id: driverId,
-                driver_name: dInfo.driver_name,
-                driver_car: dInfo.car_no,
-                driver_phone: driverId,
-                driver_lat: myPos.lat,
-                driver_lng: myPos.lng
+            const { data } = await _supabase.from('bookings').update({ 
+                status: 'accepted', driver_id: driverId, driver_name: driverData.driver_name,
+                driver_car: driverData.car_no, driver_phone: driverId, driver_lat: myPos.lat, driver_lng: myPos.lng
             }).eq('id', id).select().single();
 
             if (data) {
                 activeJob = data;
                 clearInterval(pollInterval);
-                
-                // Real-time Cancellation Tracking စတင်ခြင်း
                 trackCancellation(id);
-                
-                const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${data.u_lat},${data.u_lng}`;
                 document.getElementById('ui-render').innerHTML = `
                     <div class="card">
-                        <div style="text-align:center; margin-bottom:10px;"><span style="background:rgba(0,123,255,0.1); color:var(--accent); padding:4px 12px; border-radius:20px; font-size:12px; font-weight:bold;">ခရီးသည်ထံ သွားပါ</span></div>
-                        <a href="${gmapUrl}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-map-location-dot"></i> Google Maps ဖြင့်သွားမည်</a>
+                        <a href="http://maps.google.com/?q=${data.u_lat},${data.u_lng}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-map-location-dot"></i> Google Maps သွားမည်</a>
                         <div style="display:flex; gap:10px; margin-top:10px;">
                             <a href="tel:${data.u_phone}" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-phone"></i> ဖုန်းဆက်</a>
                             <button class="btn btn-success" style="flex:1;" onclick="startTrip()">ရောက်ရှိပြီ</button>
@@ -226,62 +255,92 @@
             }
         }
 
-        // ခရီးသည်ဘက်က ပယ်ဖျက်မှုကို စောင့်ကြည့်ရန်
         function trackCancellation(id) {
-            _supabase.channel('active_job').on('postgres_changes', { 
-                event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
-            }, payload => {
-                // အကယ်၍ status က 'cancelled' သို့မဟုတ် Driver မရှိတော့တဲ့ အခြေအနေဖြစ်သွားရင်
-                if (payload.new.status === 'cancelled' || payload.new.status === 'pending') {
-                    alert("ခရီးသည်က ခရီးစဉ်ကို ပယ်ဖျက်လိုက်ပါသည်။");
-                    resetToOnline();
-                }
+            _supabase.channel('active_job').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, payload => {
+                if (payload.new.status === 'cancelled') { alert("ခရီးသည်က ပယ်ဖျက်လိုက်ပါသည်။"); location.reload(); }
             }).subscribe();
         }
 
-        function resetToOnline() {
-            activeJob = null;
-            if(userMarker) { map.removeLayer(userMarker); userMarker = null; }
-            _supabase.removeChannel(_supabase.channel('active_job'));
-            handleStatusChange(); // Online Mode ပြန်စခြင်း
-        }
-
         function startTrip() {
-            if(userMarker) { map.removeLayer(userMarker); userMarker = null; }
-            const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${activeJob.dest_lat},${activeJob.dest_lng}`;
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
-                    <div style="text-align:center; margin-bottom:10px;"><span style="background:rgba(0,200,83,0.1); color:var(--success); padding:4px 12px; border-radius:20px; font-size:12px; font-weight:bold;">ခရီးစဉ် စတင်နေပြီ</span></div>
                     <div style="font-weight:600; margin-bottom:10px;">➡️ ${activeJob.dest_addr}</div>
-                    <a href="${gmapUrl}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-location-arrow"></i> Google Maps လမ်းညွှန်</a>
+                    <a href="http://maps.google.com/?q=${activeJob.dest_lat},${activeJob.dest_lng}" target="_blank" class="btn btn-gmaps">လမ်းညွှန်</a>
                     <button class="btn btn-primary" onclick="showReceipt()">ခရီးစဉ် ပြီးဆုံးပြီ</button>
                 </div>`;
         }
 
         function showReceipt() {
             const fare = Number(activeJob.fare);
-            const commission = Math.round(fare * (adminCommissionPercent / 100));
-            const net = fare - commission;
-
+            const comm = Math.round(fare * (appSettings.comm / 100));
+            const plat = Number(appSettings.platform);
+            const net = fare - comm - plat;
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
-                    <h3 style="text-align:center; margin-top:0;">ခရီးစဉ် ငွေရှင်းတမ်း</h3>
-                    <div class="receipt-row"><span>စုစုပေါင်း ရငွေ</span> <span>${fare.toLocaleString()} K</span></div>
-                    <div class="receipt-row" style="color:var(--danger);"><span>ဝန်ဆောင်ခ (${adminCommissionPercent}%)</span> <span>- ${commission.toLocaleString()} K</span></div>
-                    <div class="receipt-total"><span>အသားတင် ရငွေ</span> <span>${net.toLocaleString()} K</span></div>
-                    <button class="btn btn-success" onclick="completeJob(${commission})">အတည်ပြုသည်</button>
+                    <div class="receipt-row"><span>စုစုပေါင်း</span> <span>${fare.toLocaleString()} K</span></div>
+                    <div class="receipt-row" style="color:red;"><span>ဝန်ဆောင်ခ</span> <span>- ${(comm+plat).toLocaleString()} K</span></div>
+                    <div class="receipt-total"><span>အသားတင်</span> <span>${net.toLocaleString()} K</span></div>
+                    <button class="btn btn-success" onclick="completeJob(${comm+plat})">အတည်ပြုသည်</button>
                 </div>`;
         }
 
         async function completeJob(deduction) {
-            const { data: dData } = await _supabase.from('drivers').select('balance').eq('phone', driverId).single();
-            const newBalance = dData.balance - deduction;
-            
-            await _supabase.from('drivers').update({ balance: newBalance }).eq('phone', driverId);
+            const { data } = await _supabase.from('drivers').select('balance').eq('phone', driverId).single();
+            await _supabase.from('drivers').update({ balance: data.balance - deduction }).eq('phone', driverId);
             await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
-            
-            alert("ခရီးစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။");
+            alert("အောင်မြင်ပါပြီ");
             location.reload();
+        }
+
+        // 🔥 Tab Management
+        async function showTab(tab) {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            if (tab === 'map') {
+                document.querySelector('.nav-item:nth-child(1)').classList.add('active');
+            } else if (tab === 'history') {
+                document.querySelector('.nav-item:nth-child(2)').classList.add('active');
+                document.getElementById('history-overlay').style.display = 'flex';
+                fetchHistory();
+            } else if (tab === 'profile') {
+                document.querySelector('.nav-item:nth-child(3)').classList.add('active');
+                document.getElementById('profile-overlay').style.display = 'flex';
+                renderProfile();
+            }
+        }
+
+        async function fetchHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = "Loading...";
+            const { data } = await _supabase.from('bookings').select('*').eq('driver_id', driverId).order('id', {ascending: false}).limit(20);
+            list.innerHTML = data.length ? data.map(item => `
+                <div class="history-item">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <small style="color:#888;">#${item.id}</small>
+                        <span style="color:var(--success); font-weight:bold;">+ ${item.fare.toLocaleString()} K</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:600;">📍 ${item.dest_addr}</div>
+                    <div style="font-size:11px; color:#999; margin-top:5px;">${new Date(item.created_at).toLocaleString()}</div>
+                </div>
+            `).join('') : "မှတ်တမ်းမရှိသေးပါ။";
+        }
+
+        function renderProfile() {
+            document.getElementById('profile-data').innerHTML = `
+                <div style="text-align:center; margin-bottom:30px;">
+                    <div style="width:80px; height:80px; background:#f0f7ff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin: 0 auto 10px; color:var(--accent);">
+                        <i class="fa-solid fa-user-tie fa-3x"></i>
+                    </div>
+                    <h3 style="margin:0;">${driverData.driver_name}</h3>
+                    <div style="color:#777; font-size:14px;">ယာဉ်မောင်း ID: ${driverData.phone}</div>
+                </div>
+                <div class="profile-row"><span>ယာဉ်အမှတ်</span> <b>${driverData.car_no}</b></div>
+                <div class="profile-row"><span>ကားအမျိုးအစား</span> <b>${driverData.car_model || 'Standard'}</b></div>
+                <div class="profile-row"><span>ဖုန်းနံပါတ်</span> <b>${driverData.phone}</b></div>
+                <div class="profile-row"><span>လက်ကျန်ငွေ</span> <b style="color:var(--success);">${driverData.balance.toLocaleString()} K</b></div>
+                <button class="btn btn-danger" style="margin-top:40px;" onclick="localStorage.clear(); location.reload();">Logout ထွက်မည်</button>
+            `;
         }
 
         function recenterMap() {
