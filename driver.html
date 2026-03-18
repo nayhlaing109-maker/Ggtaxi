@@ -143,7 +143,6 @@
         let myPos = { lat: 21.95, lng: 96.08 }, activeJob = null, driverId = null, driverData = null;
         let appSettings = { comm: 20, platform: 500 };
 
-        // 🔥 Auto Login Check
         window.onload = async () => {
             const savedId = localStorage.getItem('driver_id');
             if (savedId) {
@@ -197,19 +196,42 @@
             startLocationTracking();
         }
 
+        // ✅ အဓိကပြင်ဆင်ချက် - Column အမည်များအား driver_lat/driver_lng သို့ ပြောင်းလဲခြင်း
         function startLocationTracking() {
             navigator.geolocation.watchPosition(async pos => {
                 myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 myMarker.setLatLng([myPos.lat, myPos.lng]);
-                if (activeJob) {
-                    await _supabase.from('bookings').update({ driver_lat: myPos.lat, driver_lng: myPos.lng }).eq('id', activeJob.id);
+
+                if (driverId) {
+                    // is_available ကိုပါ update လုပ်ပေးမှ passenger ဘက်က ရှာတွေ့မည်
+                    await _supabase.from('drivers').update({ 
+                        driver_lat: myPos.lat, 
+                        driver_lng: myPos.lng,
+                        is_online: isOnline,
+                        is_available: isOnline && !activeJob 
+                    }).eq('phone', driverId);
                 }
-            }, null, { enableHighAccuracy: true });
+
+                if (activeJob) {
+                    await _supabase.from('bookings').update({ 
+                        driver_lat: myPos.lat, 
+                        driver_lng: myPos.lng 
+                    }).eq('id', activeJob.id);
+                }
+            }, err => console.error(err), { enableHighAccuracy: true });
         }
 
-        function handleStatusChange() {
+        async function handleStatusChange() {
             isOnline = document.getElementById('status-toggle').checked;
             const statusTxt = document.getElementById('status-text');
+            
+            await _supabase.from('drivers').update({ 
+                is_online: isOnline, 
+                is_available: isOnline,
+                driver_lat: myPos.lat,
+                driver_lng: myPos.lng
+            }).eq('phone', driverId);
+
             if (isOnline) {
                 statusTxt.innerText = "ONLINE"; statusTxt.style.color = "var(--success)";
                 pollJobs();
@@ -224,14 +246,20 @@
 
         async function pollJobs() {
             if (!isOnline || activeJob) return;
-            const { data } = await _supabase.from('bookings').select('*').eq('status', 'pending').limit(1);
+
+            const { data } = await _supabase.from('bookings')
+                .select('*')
+                .eq('status', 'pending')
+                .eq('assigned_driver', driverId) 
+                .limit(1);
+
             const renderArea = document.getElementById('ui-render');
             
             if (data && data.length > 0) {
                 let job = data[0];
                 renderArea.innerHTML = `
                     <div class="card">
-                        <div style="font-weight:bold; font-size:14px; color:var(--accent);">ခရီးစဉ်အသစ် ရရှိပါပြီ</div>
+                        <div style="font-weight:bold; font-size:14px; color:var(--accent);">အနီးဆုံး ခရီးစဉ်တစ်ခု ရရှိပါပြီ</div>
                         <div style="font-size:14px; margin: 5px 0; color:#666;">📍 မှ: ${job.pickup_addr || 'လက်ရှိနေရာ'}</div>
                         <div style="font-size:16px; margin-bottom: 8px; font-weight:600;">🏁 သို့: ${job.dest_addr}</div>
                         <div style="font-size:22px; font-weight:800; color:var(--success);">${Number(job.fare).toLocaleString()} K</div>
@@ -256,7 +284,8 @@
         async function acceptJob(id) {
             const { data } = await _supabase.from('bookings').update({ 
                 status: 'accepted', driver_id: driverId, driver_name: driverData.driver_name,
-                driver_car: driverData.car_no, driver_phone: driverId, driver_lat: myPos.lat, driver_lng: myPos.lng
+                driver_car: driverData.car_no, driver_phone: driverId, 
+                driver_lat: myPos.lat, driver_lng: myPos.lng
             }).eq('id', id).select().single();
 
             if (data) {
@@ -265,7 +294,7 @@
                 trackCancellation(id);
                 document.getElementById('ui-render').innerHTML = `
                     <div class="card">
-                        <a href="http://maps.google.com/?q=${data.u_lat},${data.u_lng}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-map-location-dot"></i> Google Maps သွားမည်</a>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=${data.u_lat},${data.u_lng}" target="_blank" class="btn btn-gmaps"><i class="fa-solid fa-map-location-dot"></i> ခရီးသည်ထံ သွားမည်</a>
                         <div style="display:flex; gap:10px; margin-top:10px;">
                             <a href="tel:${data.u_phone}" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-phone"></i> ဖုန်းဆက်</a>
                             <button class="btn btn-success" style="flex:1;" onclick="startTrip()">ရောက်ရှိပြီ</button>
@@ -284,7 +313,7 @@
             document.getElementById('ui-render').innerHTML = `
                 <div class="card">
                     <div style="font-weight:600; margin-bottom:10px;">➡️ ${activeJob.dest_addr}</div>
-                    <a href="http://maps.google.com/?q=${activeJob.dest_lat},${activeJob.dest_lng}" target="_blank" class="btn btn-gmaps">လမ်းညွှန်</a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${activeJob.dest_lat},${activeJob.dest_lng}" target="_blank" class="btn btn-gmaps">လမ်းညွှန်</a>
                     <button class="btn btn-primary" onclick="showReceipt()">ခရီးစဉ် ပြီးဆုံးပြီ</button>
                 </div>`;
         }
@@ -305,11 +334,10 @@
         }
 
         async function completeJob(deduction) {
-            const { data } = await _supabase.from('drivers').select('balance').eq('phone', driverId).single();
-            await _supabase.from('drivers').update({ balance: data.balance - deduction }).eq('phone', driverId);
+            const { data: dData } = await _supabase.from('drivers').select('balance').eq('phone', driverId).single();
+            await _supabase.from('drivers').update({ balance: dData.balance - deduction }).eq('phone', driverId);
             await _supabase.from('bookings').update({ status: 'completed' }).eq('id', activeJob.id);
             alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။");
-            // 🔥 ခရီးစဉ်အပြီး Map သို့ ပြန်ညွှန်းခြင်း
             location.reload(); 
         }
 
@@ -333,39 +361,31 @@
             const list = document.getElementById('history-list');
             list.innerHTML = "Loading...";
             const { data } = await _supabase.from('bookings').select('*').eq('driver_id', driverId).order('id', {ascending: false}).limit(20);
-            list.innerHTML = data.length ? data.map(item => `
+            list.innerHTML = data && data.length ? data.map(item => `
                 <div class="history-item">
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                         <small style="color:#888;">#${item.id}</small>
                         <span style="color:var(--success); font-weight:bold;">+ ${item.fare.toLocaleString()} K</span>
                     </div>
-                    <div style="font-size:13px; font-weight:600;">📍 ${item.dest_addr}</div>
-                    <div style="font-size:11px; color:#999; margin-top:5px;">${new Date(item.created_at).toLocaleString()}</div>
+                    <div style="font-size:13px;">🏁 ${item.dest_addr}</div>
+                    <div style="font-size:11px; color:#aaa; margin-top:5px;">${new Date(item.created_at).toLocaleString()}</div>
                 </div>
-            `).join('') : "မှတ်တမ်းမရှိသေးပါ။";
+            `).join('') : "<p style='text-align:center; color:#999;'>မှတ်တမ်းမရှိသေးပါ။</p>";
         }
 
         function renderProfile() {
-            document.getElementById('profile-data').innerHTML = `
-                <div style="text-align:center; margin-bottom:30px;">
-                    <div style="width:80px; height:80px; background:#f0f7ff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin: 0 auto 10px; color:var(--accent);">
-                        <i class="fa-solid fa-user-tie fa-3x"></i>
-                    </div>
-                    <h3 style="margin:0;">${driverData.driver_name}</h3>
-                    <div style="color:#777; font-size:14px;">ယာဉ်မောင်း ID: ${driverData.phone}</div>
-                </div>
-                <div class="profile-row"><span>ယာဉ်အမှတ်</span> <b>${driverData.car_no}</b></div>
-                <div class="profile-row"><span>ကားအမျိုးအစား</span> <b>${driverData.car_model || 'Standard'}</b></div>
+            const area = document.getElementById('profile-data');
+            area.innerHTML = `
+                <div class="profile-row"><span>အမည်</span> <b>${driverData.driver_name}</b></div>
                 <div class="profile-row"><span>ဖုန်းနံပါတ်</span> <b>${driverData.phone}</b></div>
-                <div class="profile-row"><span>လက်ကျန်ငွေ</span> <b style="color:var(--success);">${driverData.balance.toLocaleString()} K</b></div>
-                <button class="btn btn-danger" style="margin-top:40px;" onclick="localStorage.clear(); location.reload();">Logout ထွက်မည်</button>
+                <div class="profile-row"><span>ယာဉ်အမှတ်</span> <b>${driverData.car_no}</b></div>
+                <div class="profile-row"><span>လက်ကျန်ငွေ</span> <b>${driverData.balance.toLocaleString()} K</b></div>
+                <button class="btn btn-danger" onclick="logout()">Logout ထွက်မည်</button>
             `;
         }
 
-        function recenterMap() {
-            document.getElementById('recenter-btn').style.display = 'none';
-            map.flyTo([myPos.lat, myPos.lng], 16);
-        }
+        function logout() { localStorage.clear(); location.reload(); }
+        function recenterMap() { map.flyTo([myPos.lat, myPos.lng], 16); document.getElementById('recenter-btn').style.display = 'none'; }
     </script>
 </body>
 </html>
