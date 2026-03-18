@@ -76,7 +76,7 @@
         <div id="waiting-ui">
             <div class="loader"></div>
             <h3 style="color: var(--primary); margin: 0;">ယာဉ်မောင်း ရှာဖွေနေသည်...</h3>
-            <p style="font-size: 13px; color: #777;">ခဏတာ စောင့်ဆိုင်းပေးပါ</p>
+            <p style="font-size: 13px; color: #777;">အနီးဆုံးယာဉ်မောင်းအား ချိတ်ဆက်နေပါသည်</p>
             <button class="btn-cancel" onclick="cancelBooking()">ပယ်ဖျက်မည်</button>
         </div>
 
@@ -181,72 +181,63 @@
             }
         }
 
-        // Supabase Settings Table ထဲက ဈေးနှုန်းတွေကို လှမ်းဖတ်ခြင်း
         async function getPricingConfig() {
             try {
-                const { data, error } = await _supabase
-                    .from('settings')
-                    .select('*')
-                    .eq('id', 1)
-                    .single();
+                const { data, error } = await _supabase.from('settings').select('*').eq('id', 1).single();
                 if (error) throw error;
                 return data;
             } catch (err) {
-                console.error("Pricing error:", err);
-                return { base: 2500, km_price: 1000, platform: 500 }; // Fail-safe values
+                return { base: 2500, km_price: 1000, platform: 500 };
             }
         }
 
         async function drawRoute() {
             document.getElementById('pin-ui').style.display = 'none';
-            
-            // ၁။ Database မှ Pricing Config ကို အရင်ယူပါသည်
             const config = await getPricingConfig();
 
-            // ၂။ လမ်းကြောင်းဆွဲခြင်း
             routeControl = L.Routing.control({
                 waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
-                router: L.Routing.osrmv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1',
-                    profile: 'car'
-                }),
-                lineOptions: {
-                    styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }],
-                    extendToWaypoints: true,
-                    missingRouteTolerance: 0
-                },
-                addWaypoints: false,
-                routeWhileDragging: false,
-                draggableWaypoints: false,
-                fitSelectedRoutes: true,
-                showAlternatives: false,
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'car' }),
+                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }], extendToWaypoints: true, missingRouteTolerance: 0 },
+                addWaypoints: false, routeWhileDragging: false, draggableWaypoints: false, fitSelectedRoutes: true, showAlternatives: false,
                 createMarker: () => null
             }).on('routesfound', (e) => {
                 const summary = e.routes[0].summary;
-                const dist = summary.totalDistance / 1000; // km
-                
-                // ၃။ Admin သတ်မှတ်ထားသော Logic အတိုင်း တွက်ချက်ခြင်း
+                const dist = summary.totalDistance / 1000;
                 currentFare = Math.round(config.base + (dist * config.km_price) + config.platform);
-                
                 document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ် (${dist.toFixed(2)} km)`;
                 document.getElementById('fare-txt').style.display = 'block';
                 document.getElementById('main-btn').innerText = "🚕 အခုပဲ ခေါ်ဆိုမည်";
-                
                 map.fitBounds(L.latLngBounds([pLoc.lat, pLoc.lng], [dLoc.lat, dLoc.lng]), { padding: [50, 100] });
             }).addTo(map);
         }
 
+        // 🔥 အနီးဆုံး Driver ရှာဖွေပြီး Booking တင်ခြင်း
         async function startBooking() {
             const phone = document.getElementById('u-phone').value;
             if(!phone || phone.length < 7) return alert("ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ");
 
+            // ၁။ အနီးဆုံး Driver ရှာဖွေခြင်း (RPC function ကိုခေါ်သည်)
+            const { data: drivers, error: rpcError } = await _supabase.rpc('find_nearest_driver', { 
+                pickup_lat: pLoc.lat, 
+                pickup_lng: pLoc.lng 
+            });
+
+            if (rpcError || !drivers || drivers.length === 0) {
+                return alert("စိတ်မရှိပါနဲ့၊ အနီးအနားတွင် အွန်လိုင်းဖြစ်နေသော ယာဉ်မောင်းမရှိသေးပါ။");
+            }
+
+            const nearestDriverPhone = drivers[0].driver_phone;
+
             document.getElementById('selection-ui').style.display = 'none';
             document.getElementById('waiting-ui').style.display = 'flex';
 
+            // ၂။ အနီးဆုံး Driver ဆီသို့သာ Assign ချပြီး Booking တင်ခြင်း
             const { data, error } = await _supabase.from('bookings').insert([{
                 u_phone: phone, u_lat: pLoc.lat, u_lng: pLoc.lng, dest_lat: dLoc.lat, dest_lng: dLoc.lng,
                 pickup_addr: document.getElementById('p-addr').value, dest_addr: document.getElementById('d-addr').value,
-                fare: currentFare, status: 'pending'
+                fare: currentFare, status: 'pending', 
+                assigned_driver: nearestDriverPhone // အနီးဆုံးတစ်ယောက်တည်းကိုပဲ ပို့သည်
             }]).select();
 
             if (!error) {
@@ -274,38 +265,22 @@
         }
 
         async function cancelBooking() {
-            if (!currentBookingId) {
-                location.reload();
-                return;
-            }
+            if (!currentBookingId) { location.reload(); return; }
             const { error } = await _supabase.from('bookings').update({ status: 'cancelled' }).eq('id', currentBookingId);
-            if (!error) {
-                alert("ခရီးစဉ်ကို ပယ်ဖျက်လိုက်ပါပြီ။");
-                location.reload();
-            } else {
-                location.reload();
-            }
+            if (!error) { alert("ခရီးစဉ်ကို ပယ်ဖျက်လိုက်ပါပြီ။"); location.reload(); }
         }
 
         function showDriverDetails(data) {
             document.getElementById('waiting-ui').style.display = 'none';
             document.getElementById('live-ui').style.display = 'block';
-
             document.getElementById('d-name').innerText = data.driver_name || "ယာဉ်မောင်း";
             document.getElementById('d-car').innerText = data.driver_car || "ယာဉ်နံပါတ် စစ်ဆေးနေဆဲ";
-            
-            if(data.driver_phone) {
-                const callBtn = document.getElementById('d-phone-btn');
-                callBtn.href = "tel:" + data.driver_phone;
-            }
+            if(data.driver_phone) document.getElementById('d-phone-btn').href = "tel:" + data.driver_phone;
         }
 
         function updateDriverMarker(lat, lng) {
-            if (!driverMarker) {
-                driverMarker = L.marker([lat, lng], { icon: taxiIcon }).addTo(map);
-            } else {
-                driverMarker.setLatLng([lat, lng]);
-            }
+            if (!driverMarker) driverMarker = L.marker([lat, lng], { icon: taxiIcon }).addTo(map);
+            else driverMarker.setLatLng([lat, lng]);
         }
 
         window.onload = initMap;
