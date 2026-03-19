@@ -274,7 +274,7 @@
             document.getElementById('waiting-ui').style.display = 'none';
             document.getElementById('live-ui').style.display = 'block';
             document.getElementById('d-name').innerText = data.driver_name || "ယာဉ်မောင်း";
-            document.getElementById('d-car').innerText = data.driver_car || "ယာဉ်နံပါတ် စစ်ဆေးနေဆဲ";
+            document.getElementById('d-car').innerText = data.car_no || "ယာဉ်နံပါတ် စစ်ဆေးနေဆဲ";
             if(data.driver_phone) document.getElementById('d-phone-btn').href = "tel:" + data.driver_phone;
         }
 
