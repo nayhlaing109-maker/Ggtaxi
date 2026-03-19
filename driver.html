@@ -35,7 +35,7 @@
         input:checked + .slider { background: var(--success); }
         input:checked + .slider:before { transform: translateX(18px); }
 
-        #recenter-btn { position: absolute; right: 20px; bottom: 340px; z-index: 1006; background: white; width: 50px; height: 50px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--accent); }
+        #recenter-btn { position: absolute; right: 20px; bottom: 340px; z-index: 1006; background: white; width: 50px; height: 50px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--accent); cursor: pointer; }
 
         .ui-container { position: absolute; bottom: 80px; left: 0; width: 100%; z-index: 1006; padding: 20px; pointer-events: none; }
         #ui-render { pointer-events: auto; max-width: 500px; margin: 0 auto; }
@@ -66,6 +66,8 @@
         .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .receipt-total { border-top: 2px solid #f1f1f1; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: var(--success); }
         
+        .driver-loc-icon { background: var(--accent); border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
@@ -147,6 +149,13 @@
         let myPos = { lat: 21.95, lng: 96.08 }, activeJob = null, driverId = null, driverData = null;
         let appSettings = { comm: 20, platform: 500 };
 
+        // My Location Icon (အပြာရောင် Navigation Icon)
+        const myIcon = L.divIcon({
+            className: 'driver-loc-icon',
+            html: '<div style="width:14px; height:14px; background:#007bff; border-radius:50%; margin:2px;"></div>',
+            iconSize: [24, 24]
+        });
+
         window.onload = async () => {
             const savedId = localStorage.getItem('driver_id');
             if (savedId) {
@@ -157,13 +166,6 @@
                     document.getElementById('login-section').style.display = 'none';
                     document.getElementById('main-app').style.display = 'block';
                     document.getElementById('driver-balance').innerText = data.balance.toLocaleString();
-                    
-                    const stored = localStorage.getItem('pyaPayConfig');
-                    if(stored) {
-                        const cfg = JSON.parse(stored);
-                        appSettings.comm = cfg.comm || 20;
-                        appSettings.platform = cfg.plat || 500;
-                    }
                     initApp();
                 } else {
                     localStorage.clear();
@@ -175,11 +177,9 @@
             const id = document.getElementById('login-id').value;
             const pw = document.getElementById('login-pw').value;
             const { data, error } = await _supabase.from('drivers').select('*').eq('phone', id).eq('password', pw).single();
-            
             if (data) {
                 if (data.is_banned) return alert("Account banned!");
-                driverId = data.phone;
-                driverData = data;
+                driverId = data.phone; driverData = data;
                 localStorage.setItem('driver_id', driverId);
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('main-app').style.display = 'block';
@@ -194,7 +194,9 @@
         function initApp() {
             map = L.map('map', { zoomControl: false, attributionControl: false }).setView([myPos.lat, myPos.lng], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            myMarker = L.circleMarker([myPos.lat, myPos.lng], { radius: 10, fillColor: "#007bff", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(map);
+            myMarker = L.marker([myPos.lat, myPos.lng], { icon: myIcon }).addTo(map);
+            
+            map.on('dragstart', () => document.getElementById('recenter-btn').style.display = 'flex');
             startLocationTracking();
         }
 
@@ -207,6 +209,9 @@
                         driver_lat: myPos.lat, driver_lng: myPos.lng,
                         is_online: isOnline, is_available: isOnline && !activeJob 
                     }).eq('phone', driverId);
+                    if(activeJob) {
+                        await _supabase.from('bookings').update({ driver_lat: myPos.lat, driver_lng: myPos.lng }).eq('id', activeJob.id);
+                    }
                 }
             }, null, { enableHighAccuracy: true });
         }
@@ -215,15 +220,12 @@
             isOnline = document.getElementById('status-toggle').checked;
             const statusTxt = document.getElementById('status-text');
             await _supabase.from('drivers').update({ is_online: isOnline, is_available: isOnline }).eq('phone', driverId);
-
             if (isOnline) {
                 statusTxt.innerText = "ONLINE"; statusTxt.style.color = "var(--success)";
-                pollJobs();
-                pollInterval = setInterval(pollJobs, 5000);
+                pollJobs(); pollInterval = setInterval(pollJobs, 5000);
             } else {
                 statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#777";
-                clearInterval(pollInterval);
-                document.getElementById('ui-render').innerHTML = "";
+                clearInterval(pollInterval); document.getElementById('ui-render').innerHTML = "";
             }
         }
 
@@ -248,14 +250,28 @@
             }
         }
 
+        // ခရီးသည် Cancel လုပ်တာကို စောင့်ကြည့်တဲ့ function
+        function trackBookingStatus(bookingId) {
+            _supabase.channel('booking_status').on('postgres_changes', { 
+                event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${bookingId}` 
+            }, payload => {
+                if (payload.new.status === 'cancelled') {
+                    alert("ခရီးသည်မှ ခရီးစဉ်ကို ပယ်ဖျက်လိုက်ပါပြီ။");
+                    location.reload();
+                }
+            }).subscribe();
+        }
+
         async function acceptJob(id) {
             const { data } = await _supabase.from('bookings').update({ 
                 status: 'accepted', driver_id: driverId, driver_name: driverData.driver_name,
-                driver_phone: driverId, driver_lat: myPos.lat, driver_lng: myPos.lng
+                driver_phone: driverId, car_no: driverData.car_no,
+                driver_lat: myPos.lat, driver_lng: myPos.lng
             }).eq('id', id).select().single();
 
             if (data) {
                 activeJob = data;
+                trackBookingStatus(id); // စောင့်ကြည့်ခြင်းစတင်
                 document.getElementById('ui-render').innerHTML = `
                     <div class="card">
                         <a href="https://www.google.com/maps/dir/?api=1&destination=${data.u_lat},${data.u_lng}" target="_blank" class="btn btn-gmaps">ခရီးသည်ထံ သွားမည်</a>
@@ -277,13 +293,8 @@
         }
 
         async function showReceipt() {
-            // Supabase Settings မှ data ကို လတ်တလော ဆွဲယူဖတ်ရှုခြင်း
             const { data: cfg } = await _supabase.from('settings').select('comm, platform').eq('id', 1).single();
-            if(cfg) {
-                appSettings.comm = cfg.comm || 0;
-                appSettings.platform = cfg.platform || 0;
-            }
-
+            if(cfg) { appSettings.comm = cfg.comm; appSettings.platform = cfg.platform; }
             const fare = Number(activeJob.fare);
             const comm = Math.round(fare * (appSettings.comm / 100));
             const plat = Number(appSettings.platform);
@@ -306,28 +317,19 @@
             location.reload(); 
         }
 
-        // --- History & Profile Logic ---
         async function showTab(tab) {
             document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(`nav-${tab}`).classList.add('active');
-
-            if (tab === 'history') {
-                document.getElementById('history-overlay').style.display = 'flex';
-                loadHistory();
-            } else if (tab === 'profile') {
-                document.getElementById('profile-overlay').style.display = 'flex';
-                loadProfile();
-            } else {
-                map.invalidateSize();
-            }
+            if (tab === 'history') { document.getElementById('history-overlay').style.display = 'flex'; loadHistory(); }
+            else if (tab === 'profile') { document.getElementById('profile-overlay').style.display = 'flex'; loadProfile(); }
+            else { map.invalidateSize(); }
         }
 
         async function loadHistory() {
             const list = document.getElementById('history-list');
             list.innerHTML = "<p style='text-align:center;'>Loading...</p>";
             const { data } = await _supabase.from('bookings').select('*').eq('driver_phone', driverId).order('id', {ascending: false}).limit(20);
-            
             if (data && data.length > 0) {
                 list.innerHTML = data.map(b => `
                     <div class="history-item">
@@ -362,18 +364,8 @@
             `;
         }
 
-        function logout() {
-            if(confirm("Logout ထွက်မှာ သေချာပါသလား?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function recenterMap() {
-            map.flyTo([myPos.lat, myPos.lng], 16);
-            document.getElementById('recenter-btn').style.display = 'none';
-        }
-
+        function logout() { if(confirm("Logout?")) { localStorage.clear(); location.reload(); } }
+        function recenterMap() { map.flyTo([myPos.lat, myPos.lng], 16); document.getElementById('recenter-btn').style.display = 'none'; }
         function rejectJob() { location.reload(); }
     </script>
 </body>
