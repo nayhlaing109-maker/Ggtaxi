@@ -204,7 +204,10 @@
             }).on('routesfound', (e) => {
                 const summary = e.routes[0].summary;
                 const dist = summary.totalDistance / 1000;
-                currentFare = Math.round(config.base + (dist * config.km_price) + config.platform);
+                
+                // Platform fee ကို ခရီးသည်တွက်ချက်မှုထဲကနေ ဖယ်ထုတ်လိုက်သည်
+                currentFare = Math.round(Number(config.base) + (dist * Number(config.km_price)));
+                
                 document.getElementById('fare-txt').innerText = `ခန့်မှန်းခြေ: ${currentFare.toLocaleString()} ကျပ် (${dist.toFixed(2)} km)`;
                 document.getElementById('fare-txt').style.display = 'block';
                 document.getElementById('main-btn').innerText = "🚕 အခုပဲ ခေါ်ဆိုမည်";
@@ -212,12 +215,10 @@
             }).addTo(map);
         }
 
-        // 🔥 အနီးဆုံး Driver ရှာဖွေပြီး Booking တင်ခြင်း
         async function startBooking() {
             const phone = document.getElementById('u-phone').value;
             if(!phone || phone.length < 7) return alert("ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ");
 
-            // ၁။ အနီးဆုံး Driver ရှာဖွေခြင်း (RPC function ကိုခေါ်သည်)
             const { data: drivers, error: rpcError } = await _supabase.rpc('find_nearest_driver', { 
                 pickup_lat: pLoc.lat, 
                 pickup_lng: pLoc.lng 
@@ -232,12 +233,11 @@
             document.getElementById('selection-ui').style.display = 'none';
             document.getElementById('waiting-ui').style.display = 'flex';
 
-            // ၂။ အနီးဆုံး Driver ဆီသို့သာ Assign ချပြီး Booking တင်ခြင်း
             const { data, error } = await _supabase.from('bookings').insert([{
                 u_phone: phone, u_lat: pLoc.lat, u_lng: pLoc.lng, dest_lat: dLoc.lat, dest_lng: dLoc.lng,
                 pickup_addr: document.getElementById('p-addr').value, dest_addr: document.getElementById('d-addr').value,
                 fare: currentFare, status: 'pending', 
-                assigned_driver: nearestDriverPhone // အနီးဆုံးတစ်ယောက်တည်းကိုပဲ ပို့သည်
+                assigned_driver: nearestDriverPhone
             }]).select();
 
             if (!error) {
