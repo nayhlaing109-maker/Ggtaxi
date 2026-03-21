@@ -27,6 +27,11 @@
         .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 15px; flex-shrink: 0; }
         .input-box { flex: 1; border: none; background: transparent; font-size: 14px; outline: none; padding: 5px 0; color: #333; }
         
+        /* New: Search Suggestions Styling */
+        .search-results { position: absolute; bottom: 330px; left: 20px; right: 20px; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1001; max-height: 200px; overflow-y: auto; display: none; }
+        .result-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; font-size: 13px; }
+        .result-item i { margin-right: 12px; color: #888; }
+
         /* Waiting & Live UI */
         #waiting-ui { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px 10px; }
         .loader { width: 45px; height: 45px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
@@ -55,6 +60,9 @@
         <i class="fa-solid fa-location-dot pin-icon" id="target-pin" style="color: var(--accent);"></i>
     </div>
 
+    <!-- New: Search Results List -->
+    <div id="search-list" class="search-results"></div>
+
     <div class="ui-box">
         <div id="selection-ui">
             <div class="input-row active pickup" id="p-row" onclick="setMode('pickup')">
@@ -63,7 +71,7 @@
             </div>
             <div class="input-row" id="d-row">
                 <div class="dot" style="background: var(--red);"></div>
-                <input type="text" class="input-box" id="d-addr" placeholder="ဘယ်ကိုသွားမလဲ?" onfocus="setMode('dest')" onkeyup="if(event.key === 'Enter') searchLocation()">
+                <input type="text" class="input-box" id="d-addr" placeholder="ဘယ်ကိုသွားမလဲ?" onfocus="setMode('dest')" oninput="osmSuggest(this.value)" autocomplete="off">
             </div>
             <div class="input-row" style="background: #fff; border: 1.5px solid #eee; margin-top: 5px;">
                 <i class="fa-solid fa-phone" style="margin-right: 10px; color: #777;"></i>
@@ -105,13 +113,19 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // API Keys for Mapping
+        const MAPTILER_KEY = 'DHI37vqEidI6YUwie3o6'; 
+        const MAPBOX_TOKEN = 'pk.eyJ1IjoicHlhcGF5dGF4aSIsImEiOiJjbW14ODc3MXExMHZmMnFweG43NWc1ZDZ0In0.Grn87JOvKiBSzCu7XPp_gQ';
+
         let map, mode = 'pickup', routeControl, myLocMarker, driverMarker;
         let pLoc = null, dLoc = null, pMarker, dMarker, currentFare = 0, currentBookingId = null;
+        let searchTimeout;
         const taxiIcon = L.divIcon({ html: '<i class="fa-solid fa-car-side" style="color:#e67e22; font-size:24px;"></i>', className: 'taxi-icon' });
 
         function initMap() {
             map = L.map('map', { zoomControl: false, attributionControl: false }).setView([21.9588, 96.0891], 15);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+            // လှပသော MapTiler Streets Layer ကို သုံးထားသည်
+            L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`).addTo(map);
             
             map.on('moveend', () => {
                 if(document.getElementById('pin-ui').style.display !== 'none') {
@@ -133,24 +147,47 @@
             }
         }
 
+        // OSM Nominatim Reverse Geocoding
         async function reverseGeocode(lat, lng) {
             const elId = mode === 'pickup' ? 'p-addr' : 'd-addr';
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=my,en`);
                 const data = await res.json();
                 document.getElementById(elId).value = data.display_name.split(',')[0] || "Unknown Location";
                 if(mode === 'pickup') pLoc = {lat, lng}; else dLoc = {lat, lng};
             } catch(e) {}
         }
 
-        async function searchLocation() {
-            const query = document.getElementById('d-addr').value;
-            if(!query) return;
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-                const data = await res.json();
-                if(data.length > 0) map.setView([data[0].lat, data[0].lon], 16);
-            } catch(e) {}
+        // OSM Nominatim Search Suggestion (Mandalay Bounded)
+        async function osmSuggest(val) {
+            clearTimeout(searchTimeout);
+            if (val.length < 2) { document.getElementById('search-list').style.display = 'none'; return; }
+
+            searchTimeout = setTimeout(async () => {
+                const viewbox = "96.00,21.80,96.25,22.10"; // Mandalay BBox
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&addressdetails=1&limit=6&countrycodes=mm&viewbox=${viewbox}&bounded=1&accept-language=my,en`;
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    const listDiv = document.getElementById('search-list');
+                    listDiv.innerHTML = "";
+                    if(data.length > 0) {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'result-item';
+                            div.innerHTML = `<i class="fa-solid fa-location-dot"></i><div>${item.display_name}</div>`;
+                            div.onclick = () => {
+                                dLoc = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+                                document.getElementById('d-addr').value = item.display_name.split(',')[0];
+                                listDiv.style.display = 'none';
+                                map.setView([dLoc.lat, dLoc.lng], 16);
+                            };
+                            listDiv.appendChild(div);
+                        });
+                        listDiv.style.display = 'block';
+                    } else { listDiv.style.display = 'none'; }
+                } catch(e) {}
+            }, 500);
         }
 
         function setMode(m) {
@@ -159,6 +196,7 @@
             document.getElementById(m === 'pickup' ? 'p-row' : 'd-row').classList.add('active', m);
             document.getElementById('target-pin').style.color = m === 'pickup' ? "#007bff" : "#ff4757";
             document.getElementById('pin-ui').style.display = 'block';
+            document.getElementById('search-list').style.display = 'none';
             if(routeControl) { map.removeControl(routeControl); routeControl = null; }
             document.getElementById('fare-txt').style.display = 'none';
             document.getElementById('main-btn').innerText = m === 'pickup' ? "အစမှတ် အတည်ပြုပါ" : "သွားမည့်နေရာ အတည်ပြုပါ";
@@ -191,16 +229,16 @@
             }
         }
 
+        // Mapbox Router အား အသုံးပြု၍ လမ်းကြောင်းဆွဲခြင်း
         async function drawRoute() {
             document.getElementById('pin-ui').style.display = 'none';
             const config = await getPricingConfig();
 
             routeControl = L.Routing.control({
                 waypoints: [L.latLng(pLoc.lat, pLoc.lng), L.latLng(dLoc.lat, dLoc.lng)],
-                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'car' }),
-                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }], extendToWaypoints: true, missingRouteTolerance: 0 },
-                addWaypoints: false, routeWhileDragging: false, draggableWaypoints: false, fitSelectedRoutes: true, showAlternatives: false,
-                createMarker: () => null
+                router: L.Routing.mapbox(MAPBOX_TOKEN),
+                lineOptions: { styles: [{ color: '#007bff', weight: 6, opacity: 0.8 }], extendToWaypoints: true },
+                addWaypoints: false, draggableWaypoints: false, createMarker: () => null
             }).on('routesfound', (e) => {
                 const summary = e.routes[0].summary;
                 const dist = summary.totalDistance / 1000;
@@ -247,32 +285,18 @@
                 event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
             }, payload => {
                 const b = payload.new;
-                
-                // Driver က ငြင်းလိုက်ရင် (assigned_driver က null ဖြစ်သွားရင်) နောက်တစ်ယောက် ထပ်ရှာခိုင်းခြင်း
-                if (b.status === 'pending' && !b.assigned_driver) {
-                    reassignNearestDriver();
-                }
-
-                if (b.status === 'accepted') {
-                    showDriverDetails(b);
-                }
+                if (b.status === 'pending' && !b.assigned_driver) { reassignNearestDriver(); }
+                if (b.status === 'accepted') { showDriverDetails(b); }
                 if (b.status.toLowerCase() === 'completed' || b.status.toLowerCase() === 'finished') {
                     alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။");
                     location.reload(); 
                 }
-                if (b.driver_lat && b.status === 'accepted') {
-                    updateDriverMarker(b.driver_lat, b.driver_lng);
-                }
+                if (b.driver_lat && b.status === 'accepted') { updateDriverMarker(b.driver_lat, b.driver_lng); }
             }).subscribe();
         }
 
-        // Driver က ငြင်းလိုက်တဲ့အခါ နောက်ထပ် အနီးဆုံးတစ်ယောက်ကို အလိုအလျောက် ပြန်ချိတ်ပေးမယ့် function
         async function reassignNearestDriver() {
-            const { data: drivers, error } = await _supabase.rpc('find_nearest_driver', { 
-                pickup_lat: pLoc.lat, 
-                pickup_lng: pLoc.lng 
-            });
-
+            const { data: drivers, error } = await _supabase.rpc('find_nearest_driver', { pickup_lat: pLoc.lat, pickup_lng: pLoc.lng });
             if (!error && drivers && drivers.length > 0) {
                 const nextDriver = drivers[0].driver_phone;
                 await _supabase.from('bookings').update({ assigned_driver: nextDriver }).eq('id', currentBookingId);
