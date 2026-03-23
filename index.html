@@ -27,7 +27,7 @@
         .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 15px; flex-shrink: 0; }
         .input-box { flex: 1; border: none; background: transparent; font-size: 14px; outline: none; padding: 5px 0; color: #333; }
         
-        /* New: Search Suggestions Styling */
+        /* Search Suggestions */
         .search-results { position: absolute; bottom: 330px; left: 20px; right: 20px; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1001; max-height: 200px; overflow-y: auto; display: none; }
         .result-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; font-size: 13px; }
         .result-item i { margin-right: 12px; color: #888; }
@@ -43,6 +43,18 @@
 
         .btn-main { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
         .btn-cancel { width: 100%; padding: 12px; background: #fff; color: var(--red); border: 1px solid var(--red); border-radius: 12px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+
+        /* Taxi Marker Style */
+        .taxi-marker-container {
+            background: white;
+            padding: 5px;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .leaflet-routing-container { display: none !important; }
@@ -60,7 +72,6 @@
         <i class="fa-solid fa-location-dot pin-icon" id="target-pin" style="color: var(--accent);"></i>
     </div>
 
-    <!-- New: Search Results List -->
     <div id="search-list" class="search-results"></div>
 
     <div class="ui-box">
@@ -113,18 +124,23 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // API Keys for Mapping
         const MAPTILER_KEY = 'DHI37vqEidI6YUwie3o6'; 
         const MAPBOX_TOKEN = 'pk.eyJ1IjoicHlhcGF5dGF4aSIsImEiOiJjbW14ODc3MXExMHZmMnFweG43NWc1ZDZ0In0.Grn87JOvKiBSzCu7XPp_gQ';
 
         let map, mode = 'pickup', routeControl, myLocMarker, driverMarker;
         let pLoc = null, dLoc = null, pMarker, dMarker, currentFare = 0, currentBookingId = null;
         let searchTimeout;
-        const taxiIcon = L.divIcon({ html: '<i class="fa-solid fa-car-side" style="color:#e67e22; font-size:24px;"></i>', className: 'taxi-icon' });
+
+        // Custom Taxi Icon for Realtime Tracking
+        const taxiIcon = L.divIcon({ 
+            html: '<div class="taxi-marker-container"><i class="fa-solid fa-car-side" style="color:#e67e22; font-size:18px;"></i></div>', 
+            className: 'custom-taxi-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
 
         function initMap() {
             map = L.map('map', { zoomControl: false, attributionControl: false }).setView([21.9588, 96.0891], 15);
-            // လှပသော MapTiler Streets Layer ကို သုံးထားသည်
             L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`).addTo(map);
             
             map.on('moveend', () => {
@@ -147,7 +163,6 @@
             }
         }
 
-        // OSM Nominatim Reverse Geocoding
         async function reverseGeocode(lat, lng) {
             const elId = mode === 'pickup' ? 'p-addr' : 'd-addr';
             try {
@@ -158,13 +173,12 @@
             } catch(e) {}
         }
 
-        // OSM Nominatim Search Suggestion (Mandalay Bounded)
         async function osmSuggest(val) {
             clearTimeout(searchTimeout);
             if (val.length < 2) { document.getElementById('search-list').style.display = 'none'; return; }
 
             searchTimeout = setTimeout(async () => {
-                const viewbox = "96.00,21.80,96.25,22.10"; // Mandalay BBox
+                const viewbox = "96.00,21.80,96.25,22.10"; 
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&addressdetails=1&limit=6&countrycodes=mm&viewbox=${viewbox}&bounded=1&accept-language=my,en`;
                 try {
                     const res = await fetch(url);
@@ -229,7 +243,6 @@
             }
         }
 
-        // Mapbox Router အား အသုံးပြု၍ လမ်းကြောင်းဆွဲခြင်း
         async function drawRoute() {
             document.getElementById('pin-ui').style.display = 'none';
             const config = await getPricingConfig();
@@ -285,13 +298,23 @@
                 event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` 
             }, payload => {
                 const b = payload.new;
-                if (b.status === 'pending' && !b.assigned_driver) { reassignNearestDriver(); }
+                
+                // ၁။ Driver လက်ခံလျှင် UI ပြောင်းမည်
                 if (b.status === 'accepted') { showDriverDetails(b); }
+                
+                // ၂။ Driver ရွေ့လျားမှုကို Realtime ပြမည်
+                if (b.driver_lat && b.driver_lng) { 
+                    updateDriverMarker(b.driver_lat, b.driver_lng); 
+                }
+
+                // ၃။ ခရီးစဉ် ပြီးဆုံးလျှင်
                 if (b.status.toLowerCase() === 'completed' || b.status.toLowerCase() === 'finished') {
                     alert("ခရီးစဉ် ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။");
                     location.reload(); 
                 }
-                if (b.driver_lat && b.status === 'accepted') { updateDriverMarker(b.driver_lat, b.driver_lng); }
+
+                // ၄။ Driver က ပယ်ဖျက်လျှင် သို့မဟုတ် Driver မရှိတော့လျှင်
+                if (b.status === 'pending' && !b.assigned_driver) { reassignNearestDriver(); }
             }).subscribe();
         }
 
@@ -321,8 +344,11 @@
         }
 
         function updateDriverMarker(lat, lng) {
-            if (!driverMarker) driverMarker = L.marker([lat, lng], { icon: taxiIcon }).addTo(map);
-            else driverMarker.setLatLng([lat, lng]);
+            if (!driverMarker) {
+                driverMarker = L.marker([lat, lng], { icon: taxiIcon }).addTo(map);
+            } else {
+                driverMarker.setLatLng([lat, lng]);
+            }
         }
 
         window.onload = initMap;
