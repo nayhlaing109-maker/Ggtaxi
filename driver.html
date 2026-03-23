@@ -80,9 +80,7 @@
             </div>
             <h2>Pya Pay DRIVER</h2>
             <input type="number" id="login-id" placeholder="ဖုန်းနံပါတ်" autocomplete="off">
-
-<input type="password" id="login-pw" placeholder="Password" autocomplete="new-password">
-
+            <input type="password" id="login-pw" placeholder="Password" autocomplete="new-password">
             <button class="btn btn-primary" onclick="handleLogin()">Login ဝင်မည်</button>
             <p id="login-error" style="color: #ff3d00; font-size: 13px; margin-top: 15px; display: none;"></p>
         </div>
@@ -197,17 +195,25 @@
             startLocationTracking();
         }
 
+        // --- Realtime Location Update logic ပေါင်းထည့်ထားပါသည် ---
         function startLocationTracking() {
             navigator.geolocation.watchPosition(async pos => {
                 myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 myMarker.setLatLng([myPos.lat, myPos.lng]);
+                
                 if (driverId) {
+                    // Drivers table ကို update လုပ်ခြင်း
                     await _supabase.from('drivers').update({ 
                         driver_lat: myPos.lat, driver_lng: myPos.lng,
                         is_online: isOnline, is_available: isOnline && !activeJob 
                     }).eq('phone', driverId);
+                    
+                    // ခရီးသည် မြင်ရအောင် Bookings table ကိုပါ Realtime Update လုပ်ပေးခြင်း
                     if(activeJob) {
-                        await _supabase.from('bookings').update({ driver_lat: myPos.lat, driver_lng: myPos.lng }).eq('id', activeJob.id);
+                        await _supabase.from('bookings').update({ 
+                            driver_lat: myPos.lat, 
+                            driver_lng: myPos.lng 
+                        }).eq('id', activeJob.id);
                     }
                 }
             }, null, { enableHighAccuracy: true });
