@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
+    <script>
+  // 🔥 Page စဖွင့်တာနဲ့ ချက်ချင်း Notification ခွင့်ပြုချက်တောင်းရန်
+  document.addEventListener("DOMContentLoaded", function() {
+    if ("Notification" in window) {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          alert("Notification ခွင့်ပြုချက် ရရှိပါပြီ!"); // 👈 အောင်မြင်ရင် Alert ပြခိုင်းခြင်း
+        } else {
+          alert("Notification ခွင့်ပြုချက် မရရှိသေးပါ!");
+        }
+      });
+    } else {
+      alert("ဒီ Browser က Notification ကို Support မလုပ်ပါဘူး။");
+    }
+  });
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pya Pay Driver - Full Integrated</title>
