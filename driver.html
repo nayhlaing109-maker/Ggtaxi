@@ -30,6 +30,35 @@
     });
   };
 </script>
+  // ... Firebase Initialize လုပ်ပြီးသား အောက်မှာ ဆက်ရေးရန် ...
+const messaging = firebase.messaging();
+
+// 🔔 Notification ခွင့်ပြုချက်တောင်းပြီး Token ယူခြင်း
+function requestPermission() {
+  console.log('Permission တောင်းနေသည်...');
+  Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+      console.log('ခွင့်ပြုချက် ရရှိပါပြီ။');
+
+      // ✨ အခုနကပေးတဲ့ Key ကို ဒီနေရာမှာ ထည့်ရမှာပါ
+      messaging.getToken({ 
+        vapidKey: 'BLbMHxirnyaQg6FobRid3v0Kpd7reFYKtI9euq8VOH6l4u7UN3RsD5Trb7IN3LEXlsTMhBy_c41DfYXDgt7vxZE' 
+      }).then((currentToken) => {
+        if (currentToken) {
+          console.log('သင့်ရဲ့ Token - ', currentToken);
+          // ဒီ Token ရပြီဆိုရင် Alert စာသား ထပ်မပေါ်တော့ပါဘူး
+        }
+      }).catch((err) => {
+        console.log('Token ယူရတာ အဆင်မပြေပါ - ', err);
+      });
+
+    } else {
+      alert("Notification ပိတ်ထားပါတယ် Chrome မှာ ဖွင့်ပေးပါ");
+    }
+  });
+}
+
+window.onload = requestPermission;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pya Pay Driver - Full Integrated</title>
