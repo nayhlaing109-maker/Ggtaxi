@@ -1,7 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
-// 🔔 သင့်ရဲ့ Firebase Web Config Key များ
+// 🔔 ပုံ (fdf523ec) ထဲက သင်၏ Web Config Key များ
 const firebaseConfig = {
   apiKey: "AIzaSyD3hhkLybww1LCS8ir2EU7nDxrO7rOAoP0",
   authDomain: "pyapay.firebaseapp.com",
@@ -15,9 +15,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// နောက်ကွယ်မှာ Notification လက်ခံရရှိမှုကို ကိုင်တွယ်ခြင်း
+// Background မှာ Notification ပြသရန်
 messaging.onBackgroundMessage((payload) => {
-  console.log('Background message received: ', payload);
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
