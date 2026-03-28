@@ -16,19 +16,6 @@
 
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
-
-  // Page ပွင့်လာတာနဲ့ ချက်ချင်း တောင်းခိုင်းခြင်း
-  window.onload = function() {
-    Notification.requestPermission().then((permission) => {
-      if (permission === 'granted') {
-        alert("Notification ခွင့်ပြုချက် ရရှိပါပြီ!");
-        // လူထောင်ချီဆီ ပို့ဖို့ Token ထုတ်ယူခြင်း
-        messaging.getToken().then((token) => { console.log("Token:", token); });
-      } else {
-        alert("Notification ပိတ်ထားပါတယ်။ Chrome Setting မှာ သွားဖွင့်ပေးပါ။");
-      }
-    });
-  };
 </script>
   // ... Firebase Initialize လုပ်ပြီးသား အောက်မှာ ဆက်ရေးရန် ...
 const messaging = firebase.messaging();
