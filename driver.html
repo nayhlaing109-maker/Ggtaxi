@@ -1,19 +1,30 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-    <script>
-  // 🔥 Page စဖွင့်တာနဲ့ ချက်ချင်း Notification ခွင့်ပြုချက်တောင်းရန်
-  document.addEventListener("DOMContentLoaded", function() {
-    if ("Notification" in window) {
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          alert("Notification ခွင့်ပြုချက် ရရှိပါပြီ!"); // 👈 အောင်မြင်ရင် Alert ပြခိုင်းခြင်း
-        } else {
-          alert("Notification ခွင့်ပြုချက် မရရှိသေးပါ!");
-        }
+ <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", async function() {
+    if (window.Capacitor) {
+      const PushNotifications = Capacitor.Plugins.PushNotifications;
+
+      // ၁။ ခွင့်ပြုချက်တောင်းခြင်း
+      let permStatus = await PushNotifications.requestPermissions();
+
+      if (permStatus.receive === 'granted') {
+        // ၂။ Firebase မှာ Register လုပ်ခြင်း
+        await PushNotifications.register();
+        alert("Push Notification ခွင့်ပြုချက် ရရှိပါပြီ!");
+      }
+
+      // ၃။ FCM Token ထုတ်ယူခြင်း (Logcat မှာ မြင်ရအောင်လို့ပါ)
+      PushNotifications.addListener('registration', (token) => {
+        console.log('FCM Device Token: ' + token.value);
+        alert("Token ရရှိပါပြီ! Logcat မှာ စစ်ကြည့်ပါဗျာ။");
       });
-    } else {
-      alert("ဒီ Browser က Notification ကို Support မလုပ်ပါဘူး။");
+
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('Error on registration: ' + error);
+      });
     }
   });
 </script>
