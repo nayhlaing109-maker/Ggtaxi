@@ -1,32 +1,37 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
- <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
+ <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js"></script>
+
 <script>
-  document.addEventListener("DOMContentLoaded", async function() {
-    if (window.Capacitor) {
-      const PushNotifications = Capacitor.Plugins.PushNotifications;
+  const firebaseConfig = {
+    apiKey: "AIzaSyD3hhkLybww1LCS8ir2EU7nDxrO7rOAoP0",
+    authDomain: "pyapay.firebaseapp.com",
+    projectId: "pyapay",
+    messagingSenderId: "369757698666",
+    appId: "1:369757698666:web:6e30f7c55fd220b4cc2813"
+  };
 
-      // ၁။ ခွင့်ပြုချက်တောင်းခြင်း
-      let permStatus = await PushNotifications.requestPermissions();
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
 
-      if (permStatus.receive === 'granted') {
-        // ၂။ Firebase မှာ Register လုပ်ခြင်း
-        await PushNotifications.register();
-        alert("Push Notification ခွင့်ပြုချက် ရရှိပါပြီ!");
+  // 🔔 User ထံမှ Notification ခွင့်ပြုချက်တောင်းခြင်း
+  function requestPermission() {
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        // Token ယူခြင်း (ဒါမှ လူထောင်ချီဆီ လှမ်းပို့လို့ရမှာပါ)
+        messaging.getToken({ vapidKey: 'YOUR_PUBLIC_VAPID_KEY' }).then((currentToken) => {
+          if (currentToken) {
+            console.log('Token ရရှိပါပြီ - ', currentToken);
+            // ဒီနေရာမှာ Token ကို Database ထဲ သိမ်းရမှာဖြစ်ပါတယ်
+          }
+        });
       }
-
-      // ၃။ FCM Token ထုတ်ယူခြင်း (Logcat မှာ မြင်ရအောင်လို့ပါ)
-      PushNotifications.addListener('registration', (token) => {
-        console.log('FCM Device Token: ' + token.value);
-        alert("Token ရရှိပါပြီ! Logcat မှာ စစ်ကြည့်ပါဗျာ။");
-      });
-
-      PushNotifications.addListener('registrationError', (error) => {
-        console.error('Error on registration: ' + error);
-      });
-    }
-  });
+    });
+  }
+  
+  window.onload = requestPermission;
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
