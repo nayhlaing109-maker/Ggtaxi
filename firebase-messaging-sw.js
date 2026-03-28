@@ -3,11 +3,11 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compa
 
 // 🔥 သင်၏ Firebase Project Settings ထဲက Config ကုဒ်လေးတွေနဲ့ အစားထိုးပါ
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD3hhkLybww1LCS8ir2EU7nDxrO7rOAoP0",
+  authDomain: "pyapay.firebaseapp.com",
+  projectId: "pyapay",
+  messagingSenderId: "369757698666",
+  appId: "1:369757698666:web:6e30f7c55fd220b4cc2813",
 });
 
 const messaging = firebase.messaging();
