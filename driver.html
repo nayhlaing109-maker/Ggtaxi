@@ -1,51 +1,6 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js"></script>
-
-<script>
-  // Firebase Config ကို ဒီမှာလည်း ထည့်ပေးရပါမယ်
-  const firebaseConfig = {
-    apiKey: "AIzaSyD3hhkLybww1LCS8ir2EU7nDxrO7rOAoP0",
-    authDomain: "pyapay.firebaseapp.com",
-    projectId: "pyapay",
-    messagingSenderId: "369757698666",
-    appId: "1:369757698666:web:6e30f7c55fd220b4cc2813"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const messaging = firebase.messaging();
-</script>
-  // ... Firebase Initialize လုပ်ပြီးသား အောက်မှာ ဆက်ရေးရန် ...
-const messaging = firebase.messaging();
-
-// 🔔 Notification ခွင့်ပြုချက်တောင်းပြီး Token ယူခြင်း
-function requestPermission() {
-  console.log('Permission တောင်းနေသည်...');
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('ခွင့်ပြုချက် ရရှိပါပြီ။');
-
-      // ✨ အခုနကပေးတဲ့ Key ကို ဒီနေရာမှာ ထည့်ရမှာပါ
-      messaging.getToken({ 
-        vapidKey: 'BLbMHxirnyaQg6FobRid3v0Kpd7reFYKtI9euq8VOH6l4u7UN3RsD5Trb7IN3LEXlsTMhBy_c41DfYXDgt7vxZE' 
-      }).then((currentToken) => {
-        if (currentToken) {
-          console.log('သင့်ရဲ့ Token - ', currentToken);
-          // ဒီ Token ရပြီဆိုရင် Alert စာသား ထပ်မပေါ်တော့ပါဘူး
-        }
-      }).catch((err) => {
-        console.log('Token ယူရတာ အဆင်မပြေပါ - ', err);
-      });
-
-    } else {
-      alert("Notification ပိတ်ထားပါတယ် Chrome မှာ ဖွင့်ပေးပါ");
-    }
-  });
-}
-
-window.onload = requestPermission;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pya Pay Driver - Full Integrated</title>
@@ -414,16 +369,5 @@ window.onload = requestPermission;
         function logout() { if(confirm("Logout?")) { localStorage.clear(); location.reload(); } }
         function recenterMap() { map.flyTo([myPos.lat, myPos.lng], 16); document.getElementById('recenter-btn').style.display = 'none'; }
     </script>
-  // 🔔 Notification ပေးပို့ခွင့် တောင်းဆိုခြင်း
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
-    } else {
-      console.log('Notification permission denied.');
-    }
-  });
-    </script>
-
-
 </body>
 </html>
