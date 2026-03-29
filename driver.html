@@ -17,21 +17,35 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Token ယူပြီး Supabase မှာ သိမ်းမယ့် Function
+
+// ... ရှိပြီးသား တခြား function များ ...
+
+// အခု code ကို ဒီမှာ လာထည့်ပါ
 async function requestToken() {
     try {
-        // VAPID Key ကို Firebase Console > Cloud Messaging မှာ သွားယူပါ
-        const token = await messaging.getToken({ vapidKey: 'BJboSWTepYzJaTV9i7QIwNL2Fuy6ldPGqDulBnI02yHTfT4wtsQtC83x6D7g0dT1HJR3SCpQjJghXZ4G6Yc330E' });
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({ 
+            vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
+        });
+
         if (token) {
             console.log('Token:', token);
-            // Supabase မှာ token သိမ်းခြင်း
-            await _supabase.from('drivers').update({ fcm_token: token }).eq('phone', driverId);
+            const dId = localStorage.getItem('driver_id'); 
+            
+            if (dId) {
+                const { error } = await _supabase
+                    .from('drivers')
+                    .update({ fcm_token: token })
+                    .eq('phone', dId);
+                
+                if (error) console.log('Supabase Update Error:', error.message);
+                else console.log('Token successfully saved to Supabase');
+            }
         }
     } catch (err) {
         console.log('Error getting token:', err);
     }
 }
-
 // Login ဝင်ပြီးတာနဲ့ ဒီ function ကို ခေါ်ပေးပါ
 // ဥပမာ - handleLogin() ထဲမှာ ထည့်ခေါ်နိုင်ပါတယ်
     <meta charset="UTF-8">
