@@ -3,6 +3,37 @@
 <head>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+    // Firebase Config (အခုနက key အစစ်နဲ့ ပြန်ဖြည့်ပါ)
+const firebaseConfig = {
+    apiKey: "AIzaSyB3oEgakHXj4N0os0QO61-HOuM165VOVYI",
+    authDomain: "pyapay-driver.firebaseapp.com",
+    projectId: "pyapay-driver",
+    storageBucket: "pyapay-driver.firebasestorage.app",
+    messagingSenderId: "719139320259",
+    appId: "1:719139320259:web:2e81dc869c0358135bcd76"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// Token ယူပြီး Supabase မှာ သိမ်းမယ့် Function
+async function requestToken() {
+    try {
+        // VAPID Key ကို Firebase Console > Cloud Messaging မှာ သွားယူပါ
+        const token = await messaging.getToken({ vapidKey: 'BJboSWTepYzJaTV9i7QIwNL2Fuy6ldPGqDulBnI02yHTfT4wtsQtC83x6D7g0dT1HJR3SCpQjJghXZ4G6Yc330E' });
+        if (token) {
+            console.log('Token:', token);
+            // Supabase မှာ token သိမ်းခြင်း
+            await _supabase.from('drivers').update({ fcm_token: token }).eq('phone', driverId);
+        }
+    } catch (err) {
+        console.log('Error getting token:', err);
+    }
+}
+
+// Login ဝင်ပြီးတာနဲ့ ဒီ function ကို ခေါ်ပေးပါ
+// ဥပမာ - handleLogin() ထဲမှာ ထည့်ခေါ်နိုင်ပါတယ်
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pya Pay Driver - Full Integrated</title>
