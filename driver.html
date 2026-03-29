@@ -227,6 +227,10 @@ async function requestToken() {
             map.on('dragstart', () => document.getElementById('recenter-btn').style.display = 'flex');
             startLocationTracking();
         }
+        // Notification Token တောင်းပြီး Supabase မှာ သိမ်းရန် ခေါ်ယူခြင်း
+    requestToken(); 
+    // ----------------------
+}
 
         // --- Realtime Location Update logic ပေါင်းထည့်ထားပါသည် ---
         function startLocationTracking() {
