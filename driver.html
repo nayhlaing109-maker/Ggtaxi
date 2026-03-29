@@ -159,27 +159,32 @@
 
 async function requestToken() {
     try {
-        const messaging = firebase.messaging();
         const token = await messaging.getToken({ 
             vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
         });
         
         if (token) {
-            console.log('Token:', token);
-            const dId = localStorage.getItem('driver_id'); // 09699672380 အတိုင်း ရပါလိမ့်မယ်
+            let dId = localStorage.getItem('driver_id'); // 09699672380 ရလာပါမယ်
             
             if (dId) {
+                // ရှေ့ဆုံးက '0' ကို ဖြတ်လိုက်ပါ (9699672380 ဖြစ်သွားပါမယ်)
+                // ဒါမှ Table ထဲက 'id' column နဲ့ သွားကိုက်မှာပါ
+                const cleanId = dId.startsWith('0') ? dId.substring(1) : dId;
+
                 const { error } = await _supabase
                     .from('drivers')
                     .update({ fcm_token: token })
-                    .eq('phone', dId); // Database ထဲက phone နံပါတ်နဲ့ အတိအကျ တိုက်စစ်ပါမယ်
+                    .eq('id', cleanId); // phone အစား id နဲ့ စစ်လိုက်ပါ
                 
-                if (error) console.log('Supabase Update Error:', error.message);
-                else console.log('Token successfully saved to Supabase');
+                if (error) {
+                    console.log('Supabase Error:', error.message);
+                } else {
+                    console.log('Success! Token saved for ID:', cleanId);
+                }
             }
         }
     } catch (err) {
-        console.log('Error getting token:', err);
+        console.log('FCM Error:', err);
     }
 }
 
