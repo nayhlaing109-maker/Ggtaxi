@@ -154,7 +154,7 @@
     };
 
     // Firebase initialize လုပ်ပြီးတာနဲ့ ဒါလေးထည့်ပါ
-navigator.serviceWorker.register('./firebase-messaging-sw.js')
+navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js')
   .then((registration) => {
     messaging.useServiceWorker(registration);
     console.log('Service Worker registered successfully');
