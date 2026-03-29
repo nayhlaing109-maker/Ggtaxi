@@ -3,49 +3,7 @@
 <head>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
-    // Firebase Config (အခုနက key အစစ်နဲ့ ပြန်ဖြည့်ပါ)
-const firebaseConfig = {
-    apiKey: "AIzaSyB3oEgakHXj4N0os0QO61-HOuM165VOVYI",
-    authDomain: "pyapay-driver.firebaseapp.com",
-    projectId: "pyapay-driver",
-    storageBucket: "pyapay-driver.firebasestorage.app",
-    messagingSenderId: "719139320259",
-    appId: "1:719139320259:web:2e81dc869c0358135bcd76"
-};
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging();
-
-
-// ... ရှိပြီးသား တခြား function များ ...
-
-// အခု code ကို ဒီမှာ လာထည့်ပါ
-async function requestToken() {
-    try {
-        const messaging = firebase.messaging();
-        const token = await messaging.getToken({ 
-            vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
-        });
-
-        if (token) {
-            console.log('Token:', token);
-            const dId = localStorage.getItem('driver_id'); 
-            
-            if (dId) {
-                const { error } = await _supabase
-                    .from('drivers')
-                    .update({ fcm_token: token })
-                    .eq('phone', dId);
-                
-                if (error) console.log('Supabase Update Error:', error.message);
-                else console.log('Token successfully saved to Supabase');
-            }
-        }
-    } catch (err) {
-        console.log('Error getting token:', err);
-    }
-}
 // Login ဝင်ပြီးတာနဲ့ ဒီ function ကို ခေါ်ပေးပါ
 // ဥပမာ - handleLogin() ထဲမှာ ထည့်ခေါ်နိုင်ပါတယ်
     <meta charset="UTF-8">
@@ -187,6 +145,40 @@ async function requestToken() {
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // ၁။ Firebase Config ကို ဒီမှာထားပါ
+    const firebaseConfig = {
+        apiKey: "AIzaSyB3oEgakHXj4N0os0QO61-HOuM165VOVYI",
+        authDomain: "pyapay-driver.firebaseapp.com",
+        projectId: "pyapay-driver",
+        storageBucket: "pyapay-driver.firebasestorage.app",
+        messagingSenderId: "719139320259",
+        appId: "1:719139320259:web:2e81dc869c0358135bcd76"
+    };
+
+    // ၂။ Firebase ကို Initialize လုပ်ပါ
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+
+    // ၃။ requestToken function ကိုလည်း ဒီ script tag ထဲမှာပဲ ထားပါ
+    async function requestToken() {
+        try {
+            const token = await messaging.getToken({ 
+                vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
+            });
+            if (token) {
+                const dId = localStorage.getItem('driver_id'); 
+                if (dId) {
+                    await _supabase.from('drivers').update({ fcm_token: token }).eq('phone', dId);
+                }
+            }
+        } catch (err) {
+            console.log('Error:', err);
+        }
+    }
+
+    // ... သင့်ရဲ့ တခြား handleLogin() နဲ့ initApp() function များ ...
+</script>
     <script>
         const SUPABASE_URL = 'https://qvnrrqjhzgaulfvrjcay.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
