@@ -153,9 +153,15 @@
         appId: "1:719139320259:web:2e81dc869c0358135bcd76"
     };
 
-    // ၂။ Firebase ကို Initialize လုပ်ပါ
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+    // Firebase initialize လုပ်ပြီးတာနဲ့ ဒါလေးထည့်ပါ
+navigator.serviceWorker.register('firebase-messaging-sw.js')
+  .then((registration) => {
+    messaging.useServiceWorker(registration);
+    console.log('Service Worker registered successfully');
+  })
+  .catch((err) => {
+    console.log('Service Worker registration failed:', err);
+  });
 
 async function requestToken() {
     try {
