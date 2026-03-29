@@ -157,22 +157,29 @@
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
-    // ၃။ requestToken function ကိုလည်း ဒီ script tag ထဲမှာပဲ ထားပါ
-    async function requestToken() {
-        try {
-            const token = await messaging.getToken({ 
-                vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
-            });
-            if (token) {
-                const dId = localStorage.getItem('driver_id'); 
-                if (dId) {
-                    await _supabase.from('drivers').update({ fcm_token: token }).eq('phone', dId);
-                }
+  async function requestToken() {
+    try {
+        const token = await messaging.getToken({ 
+            vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
+        });
+        if (token) {
+            console.log('Token received:', token);
+            // localStorage ထဲမှာ သိမ်းထားတဲ့ driver_id နာမည်အတိုင်း ပြန်ယူပါ
+            const dId = localStorage.getItem('driver_id'); 
+            if (dId) {
+                const { error } = await _supabase
+                    .from('drivers')
+                    .update({ fcm_token: token })
+                    .eq('phone', dId);
+                
+                if (error) console.log('Supabase Error:', error.message);
+                else console.log('Token saved successfully!');
             }
-        } catch (err) {
-            console.log('Error:', err);
         }
+    } catch (err) {
+        console.log('FCM Error:', err);
     }
+}
 
     // ... သင့်ရဲ့ တခြား handleLogin() နဲ့ initApp() function များ ...
 </script>
