@@ -153,16 +153,22 @@
         appId: "1:719139320259:web:2e81dc869c0358135bcd76"
     };
 
-    // Firebase initialize လုပ်ပြီးတာနဲ့ ဒါလေးထည့်ပါ
+     // ၁။ Firebase ကို အရင် Initialize လုပ်ပါ
+firebase.initializeApp(firebaseConfig);
+
+// ၂။ messaging ကို ဒီမှာ အရင်ဆုံး ကြေညာရပါမယ် (ဒါမှ အောက်က Error မတက်မှာပါ)
+const messaging = firebase.messaging(); 
+
+// ၃။ ပြီးမှ Service Worker ကို Register လုပ်ပါ
 navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js')
   .then((registration) => {
-    messaging.useServiceWorker(registration);
+    // messaging ကို ဒီမှာ သုံးထားလို့ အပေါ်မှာ အရင် ကြေညာခဲ့ရတာပါ
+    messaging.useServiceWorker(registration); 
     console.log('Service Worker registered successfully');
   })
   .catch((err) => {
     console.log('Service Worker registration failed:', err);
   });
-
 async function requestToken() {
     try {
         const token = await messaging.getToken({ 
