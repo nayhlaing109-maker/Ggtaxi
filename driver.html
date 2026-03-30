@@ -176,22 +176,16 @@ async function requestToken() {
         });
         
         if (token) {
-            let dId = localStorage.getItem('driver_id'); // 09699672380 ရလာပါမယ်
-            
-            if (dId) {
-                // ရှေ့ဆုံးက '0' ကို ဖြတ်လိုက်ပါ (9699672380 ဖြစ်သွားပါမယ်)
-                // ဒါမှ Table ထဲက 'id' column နဲ့ သွားကိုက်မှာပါ
-                const cleanId = dId.startsWith('0') ? dId.substring(1) : dId;
+const dId = localStorage.getItem('driver_id');
+if (dId) {
+    // ရှေ့က 0 ပါတာ မပါတာ အကုန်လုံးကို နံပါတ်သက်သက်ပဲ ဖြစ်သွားအောင် ပြောင်းလိုက်ပါ
+    const cleanId = parseInt(dId, 10).toString(); 
+    console.log("Saving token for ID:", cleanId);
 
-                const { error } = await _supabase
-                    .from('drivers')
-                    .update({ fcm_token: token })
-                    .eq('id', cleanId); // phone အစား id နဲ့ စစ်လိုက်ပါ
-                
-                if (error) {
-                    console.log('Supabase Error:', error.message);
-                } else {
-                    console.log('Success! Token saved for ID:', cleanId);
+    const { error } = await _supabase
+        .from('drivers')
+        .update({ fcm_token: token })
+        .eq('id', cleanId);
                 }
             }
         }
