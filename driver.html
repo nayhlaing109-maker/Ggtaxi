@@ -178,7 +178,6 @@ async function requestToken() {
         if (token) {
             const dId = localStorage.getItem('driver_id');
             if (dId) {
-                // ID ကို နံပါတ်စစ်စစ်ဖြစ်အောင် parseInt သုံးပါ
                 const cleanId = parseInt(dId, 10);
                 console.log("Saving token for ID:", cleanId);
 
@@ -191,10 +190,13 @@ async function requestToken() {
                     console.log('Supabase Error:', error.message);
                 } else {
                     console.log('Success! Token saved for ID:', cleanId);
-    } catch (err) {
+                }
+            } // if (dId) အပိတ်
+        } // if (token) အပိတ်
+    } catch (err) { // try block ပြီးရင် catch တန်းလာရပါမယ်
         console.log('FCM Error:', err);
     }
-} 
+}
 
     // ... သင့်ရဲ့ တခြား handleLogin() နဲ့ initApp() function များ ...
 </script>
