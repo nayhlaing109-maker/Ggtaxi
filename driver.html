@@ -171,28 +171,33 @@ navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js')
   });
 async function requestToken() {
     try {
-        const token = await messaging.getToken({ 
-            vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnI02yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E' 
+        const token = await messaging.getToken({
+            vapidKey: 'BJboSWTePyZJaTV9i7QiWNL2Fuy6ldPGqDulBnIO2yHTft4wtsQtC83X6D7g0dT1HJR3ScpQjJghXZ4G6Yc330E'
         });
-        
-        if (token) {
-const dId = localStorage.getItem('driver_id');
-if (dId) {
-    // ရှေ့က 0 ပါတာ မပါတာ အကုန်လုံးကို နံပါတ်သက်သက်ပဲ ဖြစ်သွားအောင် ပြောင်းလိုက်ပါ
-    const cleanId = parseInt(dId, 10).toString(); 
-    console.log("Saving token for ID:", cleanId);
 
-    const { error } = await _supabase
-        .from('drivers')
-        .update({ fcm_token: token })
-        .eq('id', cleanId);
+        if (token) {
+            const dId = localStorage.getItem('driver_id');
+            if (dId) {
+                // ID ကို နံပါတ်စစ်စစ်ဖြစ်အောင် parseInt သုံးပါ
+                const cleanId = parseInt(dId, 10);
+                console.log("Saving token for ID:", cleanId);
+
+                const { error } = await _supabase
+                    .from('drivers')
+                    .update({ fcm_token: token })
+                    .eq('id', cleanId);
+
+                if (error) {
+                    console.log('Supabase Error:', error.message);
+                } else {
+                    console.log('Success! Token saved for ID:', cleanId);
                 }
             }
         }
     } catch (err) {
         console.log('FCM Error:', err);
     }
-}
+} 
 
     // ... သင့်ရဲ့ တခြား handleLogin() နဲ့ initApp() function များ ...
 </script>
