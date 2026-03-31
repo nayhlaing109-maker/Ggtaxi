@@ -160,7 +160,7 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging(); 
 
 // ၃။ ပြီးမှ Service Worker ကို Register လုပ်ပါ
-navigator.serviceWorker.register('firebase-messaging-sw.js')
+navigator.serviceWorker.register('./firebase-messaging-sw.js')
   .then((registration) => {
     // messaging ကို ဒီမှာ သုံးထားလို့ အပေါ်မှာ အရင် ကြေညာခဲ့ရတာပါ 
     console.log('Service Worker registered successfully');
