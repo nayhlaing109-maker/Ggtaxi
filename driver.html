@@ -71,56 +71,47 @@
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
-    <script type="module">
-  // Import the functions you need from the SDKs you need
+ <script type="module">
+  // ၁။ လိုအပ်တဲ့ Function တွေကို သေချာ Import လုပ်မယ်
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+  // ဒီလိုင်းလေး ပါဖို့ အရေးကြီးပါတယ်
+  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
-    apiKey: "AIzaSyCDMNjYWpoSJy3UxIySJPlRN_ZT-Q7hzkc",
+    apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc",
     authDomain: "shwey-6e752.firebaseapp.com",
     projectId: "shwey-6e752",
     storageBucket: "shwey-6e752.firebasestorage.app",
     messagingSenderId: "801859752938",
-    appId: "1:801859752938:web:015f908c54e3c9b3bf5893",
+    appId: "1:801859752938:web:015f908c54e3c9bf5893",
     measurementId: "G-XEHR9J5DEK"
   };
 
-  // Initialize Firebase
+  // ၂။ Firebase ကို Initialize လုပ်မယ်
   const app = initializeApp(firebaseConfig);
-  const analytics = getMessaging(app);
-</script>
-    // Driver ဆီက Permission တောင်းပြီး Token ယူမယ်
-function requestPermission() {
-  console.log('Requesting permission...');
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
-      
-      // Token ယူမယ် (VAPID Key ထည့်ပေးရပါမယ်)
-      getToken(messaging, { vapidKey: 'BM__2VXPDssLn0bTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEvXPIW1VJbwO0y-KoOx8SYFJAQ1h_ggs' })
-        .then((currentToken) => {
-          if (currentToken) {
-            console.log("Driver FCM Token:", currentToken);
-            // ဒီ Token ကို Supabase ထဲ သိမ်းမယ့် Function ကို ဒီမှာ ခေါ်မယ်
-          } else {
-            console.log('No registration token available.');
-          }
-        }).catch((err) => {
-          console.log('An error occurred while retrieving token. ', err);
-        });
-    } else {
-      console.log('Unable to get permission to notify.');
-    }
-  });
-}
+  const analytics = getAnalytics(app);
+  
+  // ၃။ Messaging ကို Initialize လုပ်မယ် (အခုနက Error တက်တဲ့နေရာ)
+  const messaging = getMessaging(app);
 
-// App ပွင့်လာတာနဲ့ ခေါ်လိုက်မယ်
-requestPermission();
+  // ၄။ Token ယူမယ့် Function
+  function requestPermission() {
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        // VAPID Key ကို Firebase Console ထဲကအတိုင်း ပြန်ထည့်ပေးပါ
+        getToken(messaging, { vapidKey: 'BM__2VXPDssLn0bTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEvXPIW1VJbwO0y-KoOx8SYFJAQ1h_ggs' })
+          .then((currentToken) => {
+            if (currentToken) {
+              console.log("Driver FCM Token:", currentToken);
+            }
+          });
+      }
+    });
+  }
+
+  requestPermission();
+</script>
 <body>
 
     <div id="login-section">
