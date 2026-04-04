@@ -72,25 +72,27 @@
     </style>
 </head>
  <script type="module">
-  // ၁။ လိုအပ်တဲ့ Function တွေကို သေချာ Import လုပ်မယ်
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
-  // ဒီလိုင်းလေး ပါဖို့ အရေးကြီးပါတယ်
-  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
+ // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc",
-    authDomain: "shwey-6e752.firebaseapp.com",
-    projectId: "shwey-6e752",
-    storageBucket: "shwey-6e752.firebasestorage.app",
-    messagingSenderId: "801859752938",
-    appId: "1:801859752938:web:015f908c54e3c9bf5893",
-    measurementId: "G-XEHR9J5DEK"
-  };
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCDMNjYWpoSJy3UxIySJPlRN_ZT-Q7hzkc",
+  authDomain: "shwey-6e752.firebaseapp.com",
+  projectId: "shwey-6e752",
+  storageBucket: "shwey-6e752.firebasestorage.app",
+  messagingSenderId: "801859752938",
+  appId: "1:801859752938:web:015f908c54e3c9b3bf5893",
+  measurementId: "G-XEHR9J5DEK"
+};
 
-  // ၂။ Firebase ကို Initialize လုပ်မယ်
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
   
   // ၃။ Messaging ကို Initialize လုပ်မယ် (အခုနက Error တက်တဲ့နေရာ)
   const messaging = getMessaging(app);
