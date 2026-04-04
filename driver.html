@@ -97,10 +97,13 @@
     
     if (permission === 'granted') {
       try {
-        // VAPID Key နေရာမှာ မင်းရဲ့ Key အစစ်ကို ထည့်ပါ
-        const token = await getToken(messaging, { 
-          vapidKey: 'BJ2Pvo6lNHNuwAtaJSW7qV3KLi4ITzx890tSAKkqWNVKbwUZIkaMXd52fUi_-fZwP-PPMvJT_pvsFmRDt9poKXU' 
-        });
+        // Service Worker ကို GitHub folder လမ်းကြောင်းအတိုင်း အရင် register လုပ်မယ်
+const registration = await navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js');
+
+const token = await getToken(messaging, { 
+    vapidKey: 'B32Pvo61NHNuwAtaJSW7qV3KLi4ITzx890tSAKkqWNVKBwUZIkaMXd52fUi_-fZwP-PPMvJT_pvsFmRDt9poKXU',
+    serviceWorkerRegistration: registration // ဒါလေး ထည့်ပေးဖို့ လိုပါတယ်
+});
         
         if (token) {
           console.log("Driver FCM Token:", token);
