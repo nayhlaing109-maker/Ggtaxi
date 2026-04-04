@@ -1,24 +1,14 @@
-importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+// firebase-messaging-sw.js
+importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging-compat.js');
 
-const firebaseConfig = {
-    apiKey: "AIzaSyB3oEgakHXj4NOos0QO61-HOuM165VOVYI",
-    authDomain: "pyapay-driver.firebaseapp.com",
-    projectId: "pyapay-driver",
-    storageBucket: "pyapay-driver.firebasestorage.app",
-    messagingSenderId: "719139320259",
-    appId: "1:719139320259:web:2e81dc869c0358135bcd76"
-};
-
-firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging();
-
-// နောက်ကွယ်မှာ message လက်ခံဖို့
-messaging.onBackgroundMessage((payload) => {
-    const notificationTitle = payload.notification.title;
-    const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/favicon.ico' 
-    };
-    self.registration.showNotification(notificationTitle, notificationOptions);
+firebase.initializeApp({
+    apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc",
+    authDomain: "shwey-6e752.firebaseapp.com",
+    projectId: "shwey-6e752",
+    storageBucket: "shwey-6e752.firebasestorage.app",
+    messagingSenderId: "801859752938",
+    appId: "1:801859752938:web:015f908c54e3c9bf5893"
 });
+
+const messaging = firebase.messaging();
