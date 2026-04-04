@@ -71,13 +71,11 @@
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
- <script type="module">
 <script type="module">
-  // Firebase ကို CDN ကနေ အပြည့်အစုံ ခေါ်ယူခြင်း
+  // Firebase SDK များကို CDN မှ ခေါ်ယူခြင်း
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
   import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
 
-  // မင်းရဲ့ Firebase Config (API Key ကို သေချာ ပြန်စစ်ထားတာလေး ထည့်ပါ)
   const firebaseConfig = {
     apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc",
     authDomain: "shwey-6e752.firebaseapp.com",
@@ -88,39 +86,35 @@
     measurementId: "G-XEHR9J5DEK"
   };
 
-  // Firebase ကို စတင်အသက်သွင်းခြင်း
+  // Firebase ကို စတင်ခြင်း
   const app = initializeApp(firebaseConfig);
   const messaging = getMessaging(app);
 
-  // Driver ဆီက Permission တောင်းပြီး Token ယူမယ့် Function
+  // Token ရယူရန် function
   async function requestPermission() {
-    console.log('Requesting permission...');
+    console.log('Permission တောင်းခံနေသည်...');
     const permission = await Notification.requestPermission();
     
     if (permission === 'granted') {
-      console.log('Notification permission granted.');
-      
       try {
-        // VAPID Key နေရာမှာ မင်းရဲ့ Key အရှည်ကြီးကို သေချာ ထည့်ပေးပါ
+        // VAPID Key နေရာမှာ မင်းရဲ့ Key အစစ်ကို ထည့်ပါ
         const token = await getToken(messaging, { 
-          vapidKey: 'မင်းရဲ့_VAPID_KEY_ဒီမှာထည့်' 
+          vapidKey: '' 
         });
         
         if (token) {
           console.log("Driver FCM Token:", token);
-          // ဒီနေရာမှာ Supabase ထဲ သိမ်းမယ့် ကုဒ် ထည့်လို့ရပါပြီ
         } else {
-          console.log('No token found. Check your VAPID key.');
+          console.log('Token ရှာမတွေ့ပါ။');
         }
       } catch (err) {
-        console.log('Token error:', err);
+        console.log('Error getting token:', err);
       }
     } else {
-      console.log('Permission denied.');
+      console.log('Permission ကို ငြင်းပယ်ထားသည်။');
     }
   }
 
-  // App ပွင့်တာနဲ့ Permission တောင်းမယ်
   requestPermission();
 </script>
 <body>
