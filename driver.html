@@ -72,11 +72,12 @@
     </style>
 </head>
 <script type="module">
+  // Firebase SDK များကို CDN မှ ခေါ်ယူခြင်း
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
   import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc",
+    apiKey: "AIzaSyCDMNjYWpoSJy3UxIysJP1RN_ZT-Q7hzkc", // ပုံ (1c9add18) အရ
     authDomain: "shwey-6e752.firebaseapp.com",
     projectId: "shwey-6e752",
     storageBucket: "shwey-6e752.firebasestorage.app",
@@ -87,30 +88,33 @@
   const app = initializeApp(firebaseConfig);
   const messaging = getMessaging(app);
 
-  async function getDriverToken() {
+  async function requestPermission() {
+    console.log('Permission တောင်းခံနေသည်...');
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        // GitHub Pages အတွက် registration လမ်းကြောင်း
+        // GitHub Pages သုံးနေလို့ Service Worker လမ်းကြောင်းကို အပြည့်အစုံပေးရမယ်
         const registration = await navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js');
         
         const token = await getToken(messaging, { 
-          vapidKey: 'BJ2Pvo6lNHNuwAtaJSW7qV3KLi4ITzx890tSAKkqWNVKbwUZIkaMXd52fUi_-fZwP-PPMvJT_pvsFmRDt9poKXU',
+          vapidKey: 'BJ2Pvo61NHNuwAtaJSW7qV3KLi4ITzx890tSAKkqWNVKBwUZIkaMXd52fUi_-fZwP-PPMvJT_pvsFmRDt9poKXU', // ပုံ (02751f2f) အရ
           serviceWorkerRegistration: registration 
         });
 
         if (token) {
           console.log("Driver FCM Token:", token);
-        } else {
-          console.log('No registration token available.');
+          // ဒီနေရာမှာ ရလာတဲ့ Token ကို မင်းရဲ့ Database (Supabase) ထဲ သိမ်းရမှာပါ
         }
+      } else {
+        console.log("Permission ကို ငြင်းပယ်ထားပါတယ်");
       }
-    } catch (err) {
-      console.log('An error occurred while retrieving token:', err);
+    } catch (error) {
+      console.log("Error details:", error);
     }
   }
 
-  getDriverToken();
+  // ကုဒ်စဖွင့်တာနဲ့ Permission တောင်းမယ်
+  requestPermission();
 </script>
 <body>
 
