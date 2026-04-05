@@ -106,29 +106,33 @@ async function requestPermission() {
                 serviceWorkerRegistration: registration 
             });
 
-            if (token) {
+           if (token) {
                 console.log("Driver FCM Token ရရှိပါပြီ:", token);
 
-                // --- ဒီနေရာမှာ သိမ်းတဲ့အပိုင်း စပါပြီ ---
-                // localStorage ကနေ လက်ရှိ Login ဝင်ထားတဲ့ Driver ID ကို ယူမယ်
-                const driver_id = localStorage.getItem('driver_id'); 
+                // ၁။ LocalStorage ကနေ ဖုန်းနံပါတ်ကို ယူမယ်
+                const raw_id = localStorage.getItem('driver_id'); 
+                
+                // ၂။ ရှေ့က "0" ပါနေရင် ဖြုတ်ချလိုက်မယ် (ဒါမှ Database ထဲက 9402743244 နဲ့ ကိုက်မှာပါ)
+                const driver_id = (raw_id && raw_id.startsWith('0')) ? raw_id.substring(1) : raw_id;
 
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .update({ fcm_token: token }) 
-                    .eq('id', driver_id); // driver table ထဲက ID နဲ့ စစ်မယ်
+                console.log("Database နဲ့ တိုက်စစ်မည့် ID:", driver_id);
 
-                if (error) {
-                    console.error("Database မှာ Token သိမ်းမရပါ:", error.message);
+                if (driver_id) {
+                    // ၃။ Supabase ကို Update လုပ်မယ်
+                    const { data, error } = await _supabase
+                        .from('drivers')
+                        .update({ fcm_token: token }) 
+                        .eq('id', driver_id); // Database ထဲက id column နဲ့ တိုက်စစ်
+
+                    if (error) {
+                        console.error("Database မှာ Token သိမ်းမရပါ:", error.message);
+                    } else {
+                        console.log("အောင်မြင်ပါပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
+                    }
                 } else {
-                    console.log("Token ကို Database ထဲ အောင်မြင်စွာ သိမ်းလိုက်ပါပြီ!");
+                    console.warn("Driver ID (ဖုန်းနံပါတ်) ရှာမတွေ့ပါ။");
                 }
             }
-        }
-    } catch (error) {
-        console.log("Error:", error);
-    }
-}
     requestPermission();
 </script>
 <body>
