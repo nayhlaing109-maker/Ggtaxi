@@ -90,10 +90,10 @@ const firebaseConfig = {
   // ၃။ Firebase ကို Initialize လုပ်ပြီး messaging ကို သတ်မှတ်မယ် (ဒါ အရေးကြီးဆုံးပါ)
   const app = initializeApp(firebaseConfig);
   const messaging = getMessaging(app);
-// Supabase ပိုင်း (Variable နာမည်ကို _supabase လို့ သုံးထားပါတယ်)
+// ၁။ Supabase Client ကို သေချာ သတ်မှတ်ပါ
 const supabaseUrl = 'https://qvnrrajhzgaulfvrjcay.supabase.co'; 
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc'; 
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc'; // မင်းရဲ့ Anon Key အပြည့်အစုံထည့်ပါ
+const _supabase = supabase.createClient(supabaseUrl, supabaseKey); // Variable နာမည်ကို _supabase ဟု သုံးပါ
 
 async function requestPermission() {
     console.log('Permission တောင်းခံနေသည်...');
@@ -110,29 +110,22 @@ async function requestPermission() {
             if (token) {
                 console.log("Driver FCM Token ရရှိပါပြီ:", token);
 
-                // LocalStorage ကနေ id ယူမယ်
                 const raw_id = localStorage.getItem('driver_id'); 
-                
-                // id ရှိမရှိ အရင်စစ်မယ်
-                if (!raw_id) {
-                    console.error("Error: LocalStorage ထဲမှာ driver_id ရှာမတွေ့ပါ။ အရင် Login ဝင်ပေးပါ။");
-                    return;
-                }
+                if (raw_id) {
+                    // ID ရှေ့က '0' ဖယ်သည့်အပိုင်း
+                    const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
 
-                // ရှေ့က "0" ပါရင် ဖယ်မယ်
-                const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
-                console.log("Database နဲ့ တိုက်စစ်မည့် ID:", driver_id);
+                    // ၃။ Database Update လုပ်သည့်အပိုင်း
+                    const { data, error } = await _supabase // supabase.from မဟုတ်ဘဲ _supabase.from ဟု သုံးရမည်
+                        .from('drivers')
+                        .update({ fcm_token: token }) 
+                        .eq('id', driver_id); // .String() ဟု ထည့်ရန်မလိုပါ
 
-                // Supabase ကို Update လုပ်မယ်
-                const { data, error } = await _supabase
-                    .from('drivers')
-                    .update({ fcm_token: token }) 
-                    .eq('id', driver_id); // ဒီနေရာမှာ .toString() ထည့်စရာမလိုတော့ပါ
-
-                if (error) {
-                    console.error("Database Error:", error.message);
-                } else {
-                    console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
+                    if (error) {
+                        console.error("Database Error:", error.message);
+                    } else {
+                        console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
+                    }
                 }
             }
         }
