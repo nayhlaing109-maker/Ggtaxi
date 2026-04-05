@@ -103,14 +103,14 @@ async function requestPermission() {
             const registration = await navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js');
             
             const token = await getToken(messaging, { 
-                vapidKey: 'BM__2VXPDssLn0bTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEvXPIW1VJbwO0y-KoOx8SYFJAQ1h_ggs', 
+                vapidKey: 'BM__2VXPDssLnObTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEVXPIW1VjbwoOy-KoOx8SYFJAQ1h_ggs', 
                 serviceWorkerRegistration: registration 
             });
 
             if (token) {
                 console.log("Driver FCM Token ရရှိပါပြီ:", token);
 
-                const raw_id = localStorage.getItem('driver_id'); 
+                const raw_id = localStorage.getItem('driver_id');
                 if (raw_id) {
                     const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
 
@@ -122,10 +122,8 @@ async function requestPermission() {
                     if (error) {
                         console.error("Database Error:", error.message);
                     } else {
-                        console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
+                        console.log("အောင်မြင်ပြီ! Database ထဲ သိမ်းပြီးပါပြီ။");
                     }
-                } else {
-                    console.warn("Driver ID ရှာမတွေ့ပါ။");
                 }
             }
         }
