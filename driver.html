@@ -103,29 +103,36 @@ async function requestPermission() {
             const registration = await navigator.serviceWorker.register('/Ggtaxi/firebase-messaging-sw.js');
             
             const token = await getToken(messaging, { 
-                vapidKey: 'BM__2VXPDssLn0bTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEvXPIW1VJbwO0y-KoOx8SYFJAQ1h_ggs', 
+                vapidKey: 'BM__2VXPDssLnObTw-Oc8T-ZpuBvEs5C5itxtoDlsKv27aXktxcfHkqEVXPIW1VjbwoOy-KoOx8SYFJAQ1h_ggs', 
                 serviceWorkerRegistration: registration 
             });
 
             if (token) {
                 console.log("Driver FCM Token ရရှိပါပြီ:", token);
 
+                // LocalStorage ကနေ id ယူမယ်
                 const raw_id = localStorage.getItem('driver_id'); 
-                const driver_id = (raw_id && raw_id.startsWith('0')) ? raw_id.substring(1) : raw_id;
+                
+                // id ရှိမရှိ အရင်စစ်မယ်
+                if (!raw_id) {
+                    console.error("Error: LocalStorage ထဲမှာ driver_id ရှာမတွေ့ပါ။ အရင် Login ဝင်ပေးပါ။");
+                    return;
+                }
 
-                if (driver_id) {
-                    const { data, error } = await _supabase
-                        .from('drivers')
-                        .update({ fcm_token: token }) 
-                        .eq('id', driver_id.toString()); 
+                // ရှေ့က "0" ပါရင် ဖယ်မယ်
+                const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
+                console.log("Database နဲ့ တိုက်စစ်မည့် ID:", driver_id);
 
-                    if (error) {
-                        console.error("Database Error:", error.message);
-                    } else {
-                        console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
-                    }
+                // Supabase ကို Update လုပ်မယ်
+                const { data, error } = await _supabase
+                    .from('drivers')
+                    .update({ fcm_token: token }) 
+                    .eq('id', driver_id); // ဒီနေရာမှာ .toString() ထည့်စရာမလိုတော့ပါ
+
+                if (error) {
+                    console.error("Database Error:", error.message);
                 } else {
-                    console.warn("Driver ID ရှာမတွေ့ပါ။");
+                    console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
                 }
             }
         }
@@ -133,7 +140,6 @@ async function requestPermission() {
         console.log("Error:", error);
     }
 }
-
 // Function ကို လှမ်းခေါ်ပါ
 requestPermission();
 </script>
