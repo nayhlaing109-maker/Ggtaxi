@@ -75,7 +75,8 @@
    // မင်းရဲ့ Supabase URL နဲ့ Anon Key ကို အစားထိုးပါ
 const supabaseUrl = 'https://qvnrrajhzgaulfvrjcay.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bnJycWpoemdhdWxmdnJqY2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MTUwMDUsImV4cCI6MjA4ODA5MTAwNX0.ItRRfDMI7Go0F1kCJTXOzYrY620PpSMx_iy3qfXBxTc';
-const supabase = supabasejs.createClient(supabaseUrl, supabaseKey); 
+const { createClient } = supabase; 
+const _supabase = createClient(supabaseUrl, supabaseKey);
   // Firebase SDK များကို CDN မှ ခေါ်ယူခြင်း
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
   import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
