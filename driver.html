@@ -129,11 +129,13 @@ async function requestPermission() {
                     } else {
                         console.log("အောင်မြင်ပါပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
                     }
-                } else {
-                    console.warn("Driver ID (ဖုန်းနံပါတ်) ရှာမတွေ့ပါ။");
                 }
-            }
-    requestPermission();
+        }
+    } catch (error) {
+        console.log("Error:", error);
+    }
+}
+requestPermission();
 </script>
 <body>
 
