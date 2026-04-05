@@ -127,14 +127,14 @@ async function requestPermission() {
                     if (error) {
                         console.error("Database မှာ Token သိမ်းမရပါ:", error.message);
                     } else {
-                        console.log("အောင်မြင်ပါပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
-                    }
-                }
+                        console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
+            }
         }
     } catch (error) {
         console.log("Error:", error);
     }
 }
+
 requestPermission();
 </script>
 <body>
