@@ -112,20 +112,20 @@ async function requestPermission() {
 
                 const raw_id = localStorage.getItem('driver_id'); 
                 if (raw_id) {
-                    // ID ရှေ့က '0' ဖယ်သည့်အပိုင်း
                     const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
 
-                    // ၃။ Database Update လုပ်သည့်အပိုင်း
-                    const { data, error } = await _supabase // supabase.from မဟုတ်ဘဲ _supabase.from ဟု သုံးရမည်
+                    const { data, error } = await _supabase
                         .from('drivers')
                         .update({ fcm_token: token }) 
-                        .eq('id', driver_id); // .String() ဟု ထည့်ရန်မလိုပါ
+                        .eq('id', driver_id);
 
                     if (error) {
                         console.error("Database Error:", error.message);
                     } else {
                         console.log("အောင်မြင်ပြီ! Token ကို Database ထဲ သိမ်းလိုက်ပါပြီ။");
                     }
+                } else {
+                    console.warn("Driver ID ရှာမတွေ့ပါ။");
                 }
             }
         }
@@ -133,8 +133,8 @@ async function requestPermission() {
         console.log("Error:", error);
     }
 }
-// Function ကို လှမ်းခေါ်ပါ
-requestPermission();
+
+requestPermission(); // Function ကို ခေါ်ယူပါ
 </script>
 <body>
 
