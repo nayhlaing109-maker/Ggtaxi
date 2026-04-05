@@ -117,7 +117,7 @@ async function requestPermission() {
                     const { data, error } = await _supabase
                         .from('drivers')
                         .update({ fcm_token: token }) 
-                        .eq('id', driver_id); 
+                        .eq('id', driver_id.String()); 
 
                     if (error) {
                         console.error("Database Error:", error.message);
