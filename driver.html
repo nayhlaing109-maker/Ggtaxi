@@ -110,29 +110,31 @@ async function requestPermission() {
             if (token) {
                 console.log("Driver FCM Token ရရှိပါပြီ:", token);
 
-                const raw_id = localStorage.getItem('driver_id');
+                const raw_id = localStorage.getItem('driver_id'); 
                 if (raw_id) {
                     const driver_id = raw_id.startsWith('0') ? raw_id.substring(1) : raw_id;
 
                     const { data, error } = await _supabase
                         .from('drivers')
                         .update({ fcm_token: token }) 
-                        .eq('id', driver_id);
+                        .eq('id', driver_id); 
 
                     if (error) {
                         console.error("Database Error:", error.message);
                     } else {
                         console.log("အောင်မြင်ပြီ! Database ထဲ သိမ်းပြီးပါပြီ။");
                     }
+                } else {
+                    console.warn("LocalStorage ထဲမှာ driver_id ရှာမတွေ့ပါ။");
                 }
-            }
-        }
-    } catch (error) {
+            } // <--- if (token) ပိတ်
+        } // <--- if (permission) ပိတ်
+    } catch (error) { // <--- try ကို catch နဲ့ ဆက်
         console.log("Error:", error);
     }
-}
+} // <--- function ပိတ်
 
-requestPermission(); // Function ကို ခေါ်ယူပါ
+requestPermission();
 </script>
 <body>
 
